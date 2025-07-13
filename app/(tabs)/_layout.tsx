@@ -3,10 +3,12 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
 import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+
+// Add this import:
+import { FontAwesome } from '@expo/vector-icons';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -23,27 +25,37 @@ export default function TabLayout() {
           default: {},
         }),
       }}>
+
       <Tabs.Screen
         name="china"
         options={{
           title: 'China Stock',
-          tabBarIcon: ({ color }) => <IconSymbol name="cube.fill" size={28} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="archive" size={size} color={color} />
+          ),
         }}
       />
+
       <Tabs.Screen
         name="brazil"
         options={{
           title: 'Brazil Stock',
-          tabBarIcon: ({ color }) => <IconSymbol name="cube" size={28} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="cubes" size={size} color={color} />
+          ),
         }}
       />
+
       <Tabs.Screen
         name="map"
         options={{
           title: 'Brazil Map',
-          tabBarIcon: ({ color }) => <IconSymbol name="map.fill" size={28} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="map" size={size} color={color} />
+          ),
         }}
       />
+
     </Tabs>
   );
 }
