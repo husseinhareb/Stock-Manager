@@ -1,59 +1,74 @@
-// db.ts
+// src/db.ts
 import * as SQLite from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-let dbInstance: SQLiteDatabase | null = null;
-
-/** Lazily open (or return) the database. */
+let _db: SQLiteDatabase | null = null;
 async function getDB(): Promise<SQLiteDatabase> {
-  if (!dbInstance) {
-    dbInstance = await SQLite.openDatabaseAsync('china_stock.db');  // :contentReference[oaicite:8]{index=8}
+  if (!_db) {
+    _db = await SQLite.openDatabaseAsync('stock_manager.db');
+    await _db.execAsync(`
+      CREATE TABLE IF NOT EXISTS articles (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        name     TEXT    NOT NULL,
+        quantity INTEGER NOT NULL
+      );
+    `);
   }
-  return dbInstance;
+  return _db;
 }
 
-/** Create the articles table if it doesn't exist. */
+export type Article = { id: number; name: string; quantity: number };
+
+/** Initialize the DB (creates the table if needed) */
 export async function initDB(): Promise<void> {
-  const db = await getDB();
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS articles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      quantity INTEGER NOT NULL
-    );
-  `);  // :contentReference[oaicite:9]{index=9}
+  await getDB();
 }
 
-/** Insert a new article record. */
-export async function addArticle(
+/** Insert a new article */
+export async function addArticle(name: string, quantity: number): Promise<void> {
+  const db = await getDB();
+  await db.runAsync(
+    `INSERT INTO articles (name, quantity) VALUES (?, ?);`,
+    name,
+    quantity
+  );
+}
+
+/** Fetch all articles */
+export async function fetchArticles(): Promise<Article[]> {
+  const db = await getDB();
+  return db.getAllAsync<Article>(`SELECT * FROM articles;`);
+}
+
+/** Compute total quantity */
+export async function fetchTotalQuantity(): Promise<number> {
+  const db = await getDB();
+  const row = await db.getFirstAsync<{ total: number }>(
+    `SELECT SUM(quantity) as total FROM articles;`
+  );
+  return row?.total ?? 0;
+}
+
+/** Update an existing article */
+export async function updateArticle(
+  id: number,
   name: string,
   quantity: number
 ): Promise<void> {
   const db = await getDB();
   await db.runAsync(
-    'INSERT INTO articles (name, quantity) VALUES (?, ?);',
+    `UPDATE articles SET name = ?, quantity = ? WHERE id = ?;`,
     name,
-    quantity
-  );  // :contentReference[oaicite:10]{index=10}
+    quantity,
+    id
+  );
 }
 
-/** Fetch all articles as an array. */
-export async function fetchArticles(): Promise<
-  Array<{ id: number; name: string; quantity: number }>
-> {
+/** Delete an article */
+export async function deleteArticle(id: number): Promise<void> {
   const db = await getDB();
-  return db.getAllAsync<{ id: number; name: string; quantity: number }>(
-    'SELECT * FROM articles;'
-  );  // :contentReference[oaicite:11]{index=11}
-}
-
-/** Compute the total quantity of all articles. */
-export async function fetchTotalQuantity(): Promise<number> {
-  const db = await getDB();
-  const row = await db.getFirstAsync<{ total: number }>(
-    'SELECT SUM(quantity) AS total FROM articles;'
-  );  // :contentReference[oaicite:12]{index=12}
-
-  // getFirstAsync returns null if no rows; default to 0
-  return row?.total ?? 0;  // :contentReference[oaicite:13]{index=13}
+  await db.runAsync(
+    `DELETE FROM articles WHERE id = ?;`,
+    id
+  );
 }
