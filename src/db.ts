@@ -1,77 +1,88 @@
-// src/db.ts
 import * as SQLite from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-let _db: SQLiteDatabase | null = null;
+let _dbPromise: Promise<SQLiteDatabase> | null = null;
 
 /**
  * Open (or create) the database and ensure all tables exist.
+ * Uses a single shared promise to avoid concurrent init races.
  */
 async function getDB(): Promise<SQLiteDatabase> {
-  if (!_db) {
-    _db = await SQLite.openDatabaseAsync('stock-manager.db');
+  if (!_dbPromise) {
+    _dbPromise = (async () => {
+      const db = await SQLite.openDatabaseAsync('stock-manager.db');
 
-    // ----- Main (China) & Secondary (Brazil) stock -----
-    await _db.execAsync(`
-      CREATE TABLE IF NOT EXISTS main_stock (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
-        name     TEXT    NOT NULL UNIQUE,
-        quantity INTEGER NOT NULL
-      );
-    `);
-    await _db.execAsync(`
-      CREATE TABLE IF NOT EXISTS secondary_stock (
-        id       INTEGER PRIMARY KEY REFERENCES main_stock(id),
-        name     TEXT    NOT NULL,
-        quantity INTEGER NOT NULL
-      );
-    `);
+      // ----- Main (China) & Secondary (Brazil) stock -----
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS main_stock (
+          id       INTEGER PRIMARY KEY AUTOINCREMENT,
+          name     TEXT    NOT NULL UNIQUE,
+          quantity INTEGER NOT NULL
+        );
+      `);
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS secondary_stock (
+          id       INTEGER PRIMARY KEY REFERENCES main_stock(id),
+          name     TEXT    NOT NULL,
+          quantity INTEGER NOT NULL
+        );
+      `);
 
-    // ----- Pricing -----
-    await _db.execAsync(`
-      CREATE TABLE IF NOT EXISTS prices (
-        article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
-        price      REAL    NOT NULL
-      );
-    `);
+      // ----- Pricing -----
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS prices (
+          article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
+          price      REAL    NOT NULL
+        );
+      `);
 
-    // ----- In‑Memory Cart (legacy) -----
-    await _db.execAsync(`
-      CREATE TABLE IF NOT EXISTS cart (
-        article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
-        quantity   INTEGER NOT NULL
-      );
-    `);
+      // ----- In‑Memory Cart (legacy) -----
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS cart (
+          article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
+          quantity   INTEGER NOT NULL
+        );
+      `);
 
-    // ----- Client map pins -----
-    await _db.execAsync(`
-      CREATE TABLE IF NOT EXISTS clients (
-        id        INTEGER PRIMARY KEY AUTOINCREMENT,
-        name      TEXT    NOT NULL,
-        latitude  REAL    NOT NULL,
-        longitude REAL    NOT NULL
-      );
-    `);
+      // ----- Client map pins -----
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS clients (
+          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+          name      TEXT    NOT NULL,
+          latitude  REAL    NOT NULL,
+          longitude REAL    NOT NULL
+        );
+      `);
 
-    // ----- Saved Carts Persistence -----
-    await _db.execAsync(`
-      CREATE TABLE IF NOT EXISTS saved_carts (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        client      TEXT    NOT NULL,
-        created_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
-      );
-    `);
-    await _db.execAsync(`
-      CREATE TABLE IF NOT EXISTS saved_cart_items (
-        cart_id     INTEGER NOT NULL REFERENCES saved_carts(id) ON DELETE CASCADE,
-        article_id  INTEGER NOT NULL REFERENCES main_stock(id),
-        quantity    INTEGER NOT NULL,
-        price       REAL    NOT NULL,
-        PRIMARY KEY (cart_id, article_id)
-      );
-    `);
+      // ----- Saved Carts Persistence -----
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS saved_carts (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          client      TEXT    NOT NULL,
+          created_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+        );
+      `);
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS saved_cart_items (
+          cart_id     INTEGER NOT NULL REFERENCES saved_carts(id) ON DELETE CASCADE,
+          article_id  INTEGER NOT NULL REFERENCES main_stock(id),
+          quantity    INTEGER NOT NULL,
+          price       REAL    NOT NULL,
+          PRIMARY KEY (cart_id, article_id)
+        );
+      `);
+
+      return db;
+    })();
+
+    // If initialization fails, reset _dbPromise so future calls can retry
+    _dbPromise = _dbPromise.catch(err => {
+      _dbPromise = null;
+      throw err;
+    });
   }
-  return _db;
+
+  return _dbPromise;
 }
 
 /** Types used throughout the app */
@@ -327,19 +338,16 @@ export async function saveCart(
   const db = await getDB();
   await db.execAsync(`BEGIN TRANSACTION;`);
   try {
-    // 1) Insert header
     await db.runAsync(
       `INSERT INTO saved_carts (client) VALUES (?);`,
       client
     );
-    // 2) Retrieve new cart's ID
     const row = await db.getFirstAsync<{ id: number }>(
       `SELECT last_insert_rowid() AS id;`
     );
     if (!row) throw new Error('Failed to retrieve new cart ID');
     const cartId = row.id;
 
-    // 3) Insert each line item
     for (const it of items) {
       await db.runAsync(
         `INSERT INTO saved_cart_items (cart_id, article_id, quantity, price)
@@ -385,8 +393,8 @@ export async function fetchCartItems(cartId: number): Promise<SavedCartItem[]> {
       sci.quantity,
       sci.price
     FROM saved_cart_items sci
-    JOIN main_stock m ON m.id=sci.article_id
-    WHERE sci.cart_id=?;
+    JOIN main_stock m ON m.id = sci.article_id
+    WHERE sci.cart_id = ?;
     `,
     cartId
   );
