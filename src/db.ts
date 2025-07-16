@@ -309,7 +309,7 @@ export async function returnToMain(id: number, qty: number): Promise<void> {
   const db = await getDB();
   await db.execAsync('BEGIN TRANSACTION;');
   try {
-    // check secondary
+    // 1) Check there’s enough in secondary_stock
     const sec = await db.getFirstAsync<{ quantity: number }>(
       `SELECT quantity FROM secondary_stock WHERE id = ?;`,
       id
@@ -318,19 +318,26 @@ export async function returnToMain(id: number, qty: number): Promise<void> {
       throw new Error('Insufficient Brazil stock');
     }
 
-    // subtract from secondary_stock
+    // 2) Subtract from secondary_stock
     await db.runAsync(
       `UPDATE secondary_stock
-       SET quantity = quantity - ?
+         SET quantity = quantity - ?
        WHERE id = ?;`,
       qty,
       id
     );
 
-    // add back to main_stock
+    // 3) If that dropped to zero, delete the row
+    await db.runAsync(
+      `DELETE FROM secondary_stock
+       WHERE id = ? AND quantity = 0;`,
+      id
+    );
+
+    // 4) Add back into main_stock
     await db.runAsync(
       `UPDATE main_stock
-       SET quantity = quantity + ?
+         SET quantity = quantity + ?
        WHERE id = ?;`,
       qty,
       id
