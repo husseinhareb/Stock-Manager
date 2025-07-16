@@ -3,11 +3,15 @@ import * as SQLite from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 let _db: SQLiteDatabase | null = null;
+
+/**
+ * Open (or create) the database and ensure all tables exist.
+ */
 async function getDB(): Promise<SQLiteDatabase> {
   if (!_db) {
     _db = await SQLite.openDatabaseAsync('stock-manager.db');
 
-    // Main (China) & Secondary (Brazil) stock
+    // ----- Main (China) & Secondary (Brazil) stock -----
     await _db.execAsync(`
       CREATE TABLE IF NOT EXISTS main_stock (
         id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,7 +27,7 @@ async function getDB(): Promise<SQLiteDatabase> {
       );
     `);
 
-    // Pricing
+    // ----- Pricing -----
     await _db.execAsync(`
       CREATE TABLE IF NOT EXISTS prices (
         article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
@@ -31,7 +35,7 @@ async function getDB(): Promise<SQLiteDatabase> {
       );
     `);
 
-    // Cart
+    // ----- In‑Memory Cart (legacy) -----
     await _db.execAsync(`
       CREATE TABLE IF NOT EXISTS cart (
         article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
@@ -39,7 +43,7 @@ async function getDB(): Promise<SQLiteDatabase> {
       );
     `);
 
-    // Client pins
+    // ----- Client map pins -----
     await _db.execAsync(`
       CREATE TABLE IF NOT EXISTS clients (
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,46 +52,62 @@ async function getDB(): Promise<SQLiteDatabase> {
         longitude REAL    NOT NULL
       );
     `);
+
+    // ----- Saved Carts Persistence -----
+    await _db.execAsync(`
+      CREATE TABLE IF NOT EXISTS saved_carts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        client      TEXT    NOT NULL,
+        created_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+      );
+    `);
+    await _db.execAsync(`
+      CREATE TABLE IF NOT EXISTS saved_cart_items (
+        cart_id     INTEGER NOT NULL REFERENCES saved_carts(id) ON DELETE CASCADE,
+        article_id  INTEGER NOT NULL REFERENCES main_stock(id),
+        quantity    INTEGER NOT NULL,
+        price       REAL    NOT NULL,
+        PRIMARY KEY (cart_id, article_id)
+      );
+    `);
   }
   return _db;
 }
 
-// --- Types ---
-export type Article   = { id: number; name: string; quantity: number };
-export type Price     = { article_id: number; price: number };
-export type CartItem  = { article_id: number; quantity: number; name: string; price: number };
-export type ClientPin = { id: number; name: string; latitude: number; longitude: number };
+/** Types used throughout the app */
+export type Article           = { id: number; name: string; quantity: number };
+export type Price             = { article_id: number; price: number };
+export type CartItem          = { article_id: number; quantity: number; name: string; price: number };
+export type ClientPin         = { id: number; name: string; latitude: number; longitude: number };
+export type SavedCartSummary  = { id: number; client: string; created_at: number; total: number };
+export type SavedCartItem     = { article_id: number; name: string; quantity: number; price: number };
 
-// --- Initialization ---
+/** Ensure DB is open and initialized */
 export async function initDB(): Promise<void> {
   await getDB();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// China Stock API (uses main_stock)
+// China Stock API (stored in main_stock)
 ////////////////////////////////////////////////////////////////////////////////
-/** Add or increment an article in the China stock */
+
 export async function addArticle(name: string, quantity: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(
-    `
-    INSERT INTO main_stock (name, quantity)
-      VALUES (?, ?)
-    ON CONFLICT(name) DO UPDATE
-      SET quantity = main_stock.quantity + excluded.quantity;
-    `,
+    `INSERT INTO main_stock (name, quantity)
+       VALUES (?, ?)
+     ON CONFLICT(name) DO UPDATE
+       SET quantity = main_stock.quantity + excluded.quantity;`,
     name,
     quantity
   );
 }
 
-/** Fetch all China articles */
 export async function fetchArticles(): Promise<Article[]> {
   const db = await getDB();
   return db.getAllAsync<Article>(`SELECT * FROM main_stock;`);
 }
 
-/** Sum total China stock */
 export async function fetchTotalQuantity(): Promise<number> {
   const db = await getDB();
   const row = await db.getFirstAsync<{ total: number }>(
@@ -96,7 +116,6 @@ export async function fetchTotalQuantity(): Promise<number> {
   return row?.total ?? 0;
 }
 
-/** Update a China article */
 export async function updateArticle(
   id: number,
   name: string,
@@ -111,7 +130,6 @@ export async function updateArticle(
   );
 }
 
-/** Remove a China article */
 export async function deleteArticle(id: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(`DELETE FROM main_stock WHERE id = ?;`, id);
@@ -120,34 +138,32 @@ export async function deleteArticle(id: number): Promise<void> {
 ////////////////////////////////////////////////////////////////////////////////
 // Stock Transfer (China ⇄ Brazil)
 ////////////////////////////////////////////////////////////////////////////////
-/** Alias for fetchArticles() */
+
 export async function fetchMainStock(): Promise<Article[]> {
   return fetchArticles();
 }
 
-/** Fetch all Brazil stock */
 export async function fetchSecondaryStock(): Promise<Article[]> {
   const db = await getDB();
   return db.getAllAsync<Article>(`SELECT * FROM secondary_stock;`);
 }
 
-/** Move qty from China → Brazil */
 export async function moveToSecondary(id: number, qty: number): Promise<void> {
   const db = await getDB();
-  await db.execAsync('BEGIN TRANSACTION;');
+  await db.execAsync(`SAVEPOINT sp_move;`);
   try {
     const main = await db.getFirstAsync<{ quantity: number }>(
       `SELECT quantity FROM main_stock WHERE id = ?;`,
       id
     );
-    if (!main || main.quantity < qty) {
-      throw new Error('Insufficient main stock');
-    }
+    if (!main || main.quantity < qty) throw new Error('Insufficient China stock');
+
     await db.runAsync(
       `UPDATE main_stock SET quantity = quantity - ? WHERE id = ?;`,
       qty,
       id
     );
+
     const sec = await db.getFirstAsync<{ quantity: number }>(
       `SELECT quantity FROM secondary_stock WHERE id = ?;`,
       id
@@ -161,39 +177,71 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
     } else {
       await db.runAsync(
         `INSERT INTO secondary_stock (id, name, quantity)
-         VALUES (?, (SELECT name FROM main_stock WHERE id = ?), ?);`,
+           VALUES (?, (SELECT name FROM main_stock WHERE id = ?), ?);`,
         id,
         id,
         qty
       );
     }
-    await db.execAsync('COMMIT;');
+
+    await db.execAsync(`RELEASE SAVEPOINT sp_move;`);
   } catch (e) {
-    await db.execAsync('ROLLBACK;');
+    await db.execAsync(`ROLLBACK TO SAVEPOINT sp_move;`);
     throw e;
   }
 }
 
-/** Sell qty from Brazil */
 export async function sellSecondary(id: number, qty: number): Promise<void> {
   const db = await getDB();
-  await db.execAsync('BEGIN TRANSACTION;');
+  await db.execAsync(`SAVEPOINT sp_sell;`);
   try {
     const sec = await db.getFirstAsync<{ quantity: number }>(
       `SELECT quantity FROM secondary_stock WHERE id = ?;`,
       id
     );
-    if (!sec || sec.quantity < qty) {
-      throw new Error('Insufficient Brazil stock');
-    }
+    if (!sec || sec.quantity < qty) throw new Error('Insufficient Brazil stock');
+
     await db.runAsync(
       `UPDATE secondary_stock SET quantity = quantity - ? WHERE id = ?;`,
       qty,
       id
     );
-    await db.execAsync('COMMIT;');
+
+    await db.execAsync(`RELEASE SAVEPOINT sp_sell;`);
   } catch (e) {
-    await db.execAsync('ROLLBACK;');
+    await db.execAsync(`ROLLBACK TO SAVEPOINT sp_sell;`);
+    throw e;
+  }
+}
+
+export async function returnToMain(id: number, qty: number): Promise<void> {
+  const db = await getDB();
+  await db.execAsync(`SAVEPOINT sp_return;`);
+  try {
+    const sec = await db.getFirstAsync<{ quantity: number }>(
+      `SELECT quantity FROM secondary_stock WHERE id = ?;`,
+      id
+    );
+    if (!sec || sec.quantity < qty) throw new Error('Insufficient Brazil stock to return');
+
+    await db.runAsync(
+      `UPDATE secondary_stock SET quantity = quantity - ? WHERE id = ?;`,
+      qty,
+      id
+    );
+    await db.runAsync(
+      `DELETE FROM secondary_stock WHERE id = ? AND quantity = 0;`,
+      id
+    );
+    await db.runAsync(
+      `UPDATE main_stock SET quantity = quantity + ? WHERE id = ?;`,
+      qty,
+      id
+    );
+
+    await db.execAsync(`RELEASE SAVEPOINT sp_return;`);
+  } catch (e) {
+    await db.execAsync(`ROLLBACK TO SAVEPOINT sp_return;`);
     throw e;
   }
 }
@@ -201,6 +249,7 @@ export async function sellSecondary(id: number, qty: number): Promise<void> {
 ////////////////////////////////////////////////////////////////////////////////
 // Pricing API
 ////////////////////////////////////////////////////////////////////////////////
+
 export async function fetchPrices(): Promise<Price[]> {
   const db = await getDB();
   return db.getAllAsync<Price>(`SELECT * FROM prices;`);
@@ -209,20 +258,19 @@ export async function fetchPrices(): Promise<Price[]> {
 export async function setPrice(article_id: number, price: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(
-    `
-    INSERT INTO prices (article_id, price)
-      VALUES (?, ?)
-    ON CONFLICT(article_id) DO UPDATE
-      SET price = excluded.price;
-    `,
+    `INSERT INTO prices (article_id, price)
+       VALUES (?, ?)
+     ON CONFLICT(article_id) DO UPDATE
+       SET price = excluded.price;`,
     article_id,
     price
   );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Cart API
+// In‑Memory Cart API (legacy)
 ////////////////////////////////////////////////////////////////////////////////
+
 export async function fetchCart(): Promise<CartItem[]> {
   const db = await getDB();
   return db.getAllAsync<CartItem>(
@@ -231,10 +279,10 @@ export async function fetchCart(): Promise<CartItem[]> {
       c.article_id,
       c.quantity,
       m.name,
-      IFNULL(p.price, 0) AS price
+      IFNULL(p.price,0) AS price
     FROM cart c
-    JOIN main_stock m ON m.id = c.article_id
-    LEFT JOIN prices p ON p.article_id = c.article_id;
+    JOIN main_stock m ON m.id=c.article_id
+    LEFT JOIN prices p ON p.article_id=c.article_id;
     `
   );
 }
@@ -242,20 +290,13 @@ export async function fetchCart(): Promise<CartItem[]> {
 export async function addToCart(article_id: number, quantity: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(
-    `
-    INSERT INTO cart (article_id, quantity)
-      VALUES (?, ?)
-    ON CONFLICT(article_id) DO UPDATE
-      SET quantity = excluded.quantity;
-    `,
+    `INSERT INTO cart (article_id, quantity)
+       VALUES (?,?)
+     ON CONFLICT(article_id) DO UPDATE
+       SET quantity=excluded.quantity;`,
     article_id,
     quantity
   );
-}
-
-export async function removeFromCart(article_id: number): Promise<void> {
-  const db = await getDB();
-  await db.runAsync(`DELETE FROM cart WHERE article_id = ?;`, article_id);
 }
 
 export async function clearCart(): Promise<void> {
@@ -267,17 +308,94 @@ export async function fetchCartTotal(): Promise<number> {
   const db = await getDB();
   const row = await db.getFirstAsync<{ total: number }>(
     `
-    SELECT SUM(c.quantity * IFNULL(p.price, 0)) AS total
+    SELECT SUM(c.quantity * IFNULL(p.price,0)) AS total
     FROM cart c
-    LEFT JOIN prices p ON p.article_id = c.article_id;
+    LEFT JOIN prices p ON p.article_id=c.article_id;
     `
   );
   return row?.total ?? 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Persisted Cart API (fixed)
+////////////////////////////////////////////////////////////////////////////////
+
+export async function saveCart(
+  client: string,
+  items: { article_id: number; quantity: number; price: number }[]
+): Promise<void> {
+  const db = await getDB();
+  await db.execAsync(`BEGIN TRANSACTION;`);
+  try {
+    // 1) Insert header
+    await db.runAsync(
+      `INSERT INTO saved_carts (client) VALUES (?);`,
+      client
+    );
+    // 2) Retrieve new cart's ID
+    const row = await db.getFirstAsync<{ id: number }>(
+      `SELECT last_insert_rowid() AS id;`
+    );
+    if (!row) throw new Error('Failed to retrieve new cart ID');
+    const cartId = row.id;
+
+    // 3) Insert each line item
+    for (const it of items) {
+      await db.runAsync(
+        `INSERT INTO saved_cart_items (cart_id, article_id, quantity, price)
+           VALUES (?, ?, ?, ?);`,
+        cartId,
+        it.article_id,
+        it.quantity,
+        it.price
+      );
+    }
+
+    await db.execAsync(`COMMIT;`);
+  } catch (e) {
+    await db.execAsync(`ROLLBACK;`);
+    throw e;
+  }
+}
+
+export async function fetchSavedCarts(): Promise<SavedCartSummary[]> {
+  const db = await getDB();
+  return db.getAllAsync<SavedCartSummary>(
+    `
+    SELECT
+      sc.id,
+      sc.client,
+      sc.created_at,
+      IFNULL(SUM(sci.quantity * sci.price),0) AS total
+    FROM saved_carts sc
+    LEFT JOIN saved_cart_items sci ON sci.cart_id=sc.id
+    GROUP BY sc.id
+    ORDER BY sc.created_at DESC;
+    `
+  );
+}
+
+export async function fetchCartItems(cartId: number): Promise<SavedCartItem[]> {
+  const db = await getDB();
+  return db.getAllAsync<SavedCartItem>(
+    `
+    SELECT
+      sci.article_id,
+      m.name,
+      sci.quantity,
+      sci.price
+    FROM saved_cart_items sci
+    JOIN main_stock m ON m.id=sci.article_id
+    WHERE sci.cart_id=?;
+    `,
+    cartId
+  );
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Client Pins API
 ////////////////////////////////////////////////////////////////////////////////
+
 export async function fetchClients(): Promise<ClientPin[]> {
   const db = await getDB();
   return db.getAllAsync<ClientPin>(`SELECT * FROM clients;`);
@@ -290,7 +408,7 @@ export async function addClient(
 ): Promise<void> {
   const db = await getDB();
   await db.runAsync(
-    `INSERT INTO clients (name, latitude, longitude) VALUES (?, ?, ?);`,
+    `INSERT INTO clients (name, latitude, longitude) VALUES (?,?,?);`,
     name,
     latitude,
     longitude
@@ -299,53 +417,5 @@ export async function addClient(
 
 export async function deleteClient(id: number): Promise<void> {
   const db = await getDB();
-  await db.runAsync(`DELETE FROM clients WHERE id = ?;`, id);
-}
-
-/**
- * Return quantity from Brazil (secondary_stock) back to main (China)
- */
-export async function returnToMain(id: number, qty: number): Promise<void> {
-  const db = await getDB();
-  await db.execAsync('BEGIN TRANSACTION;');
-  try {
-    // 1) Check there’s enough in secondary_stock
-    const sec = await db.getFirstAsync<{ quantity: number }>(
-      `SELECT quantity FROM secondary_stock WHERE id = ?;`,
-      id
-    );
-    if (!sec || sec.quantity < qty) {
-      throw new Error('Insufficient Brazil stock');
-    }
-
-    // 2) Subtract from secondary_stock
-    await db.runAsync(
-      `UPDATE secondary_stock
-         SET quantity = quantity - ?
-       WHERE id = ?;`,
-      qty,
-      id
-    );
-
-    // 3) If that dropped to zero, delete the row
-    await db.runAsync(
-      `DELETE FROM secondary_stock
-       WHERE id = ? AND quantity = 0;`,
-      id
-    );
-
-    // 4) Add back into main_stock
-    await db.runAsync(
-      `UPDATE main_stock
-         SET quantity = quantity + ?
-       WHERE id = ?;`,
-      qty,
-      id
-    );
-
-    await db.execAsync('COMMIT;');
-  } catch (e) {
-    await db.execAsync('ROLLBACK;');
-    throw e;
-  }
+  await db.runAsync(`DELETE FROM clients WHERE id=?;`, id);
 }
