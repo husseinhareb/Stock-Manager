@@ -443,7 +443,7 @@ export default function CartScreen() {
 
 const styles = StyleSheet.create({
   container:      { flex: 1 },
-  headerRow:      { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginHorizontal:16 },
+  headerRow:      { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginHorizontal:16,marginTop:32 },
   heading:        { fontSize:28, fontWeight:'bold', marginVertical:16 },
   addBtn:         { padding:8, borderRadius:6 },
   builder:        { flex:1 },
