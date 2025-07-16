@@ -1,5 +1,5 @@
 // app/(tabs)/brazil.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -63,6 +63,15 @@ export default function BrazilStockScreen() {
     }, [loadData])
   );
 
+  const mainTotal = useMemo(
+    () => mainStock.reduce((sum, a) => sum + a.quantity, 0),
+    [mainStock]
+  );
+  const brazilTotal = useMemo(
+    () => brazilStock.reduce((sum, a) => sum + a.quantity, 0),
+    [brazilStock]
+  );
+
   const onMove = async (item: Article) => {
     const q = parseInt(moveQty[item.id] || '0', 10);
     if (q <= 0) {
@@ -109,11 +118,14 @@ export default function BrazilStockScreen() {
         <SectionList
           sections={sections}
           keyExtractor={item => item.id.toString()}
-          renderSectionHeader={({ section }) => (
-            <Text style={[styles.subheader, { color: theme.primary }]}>
-              {section.title}
-            </Text>
-          )}
+          renderSectionHeader={({ section }) => {
+            const total = section.type === 'move' ? mainTotal : brazilTotal;
+            return (
+              <Text style={[styles.subheader, { color: theme.primary }]}>
+                {section.title} — Total: {total}
+              </Text>
+            );
+          }}
           renderItem={({ item, section }) => {
             const isMove = section.type === 'move';
             return (
@@ -156,23 +168,23 @@ export default function BrazilStockScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  heading:  { fontSize: 28, fontWeight: 'bold', margin: 16 },
-  subheader:{ fontSize: 22, fontWeight: 'bold', marginTop: 12, marginHorizontal: 16 },
-  list:     { paddingBottom: 16 },
-  row:      {
+  heading:   { fontSize: 28, fontWeight: 'bold', margin: 16 },
+  subheader: { fontSize: 22, fontWeight: 'bold', marginTop: 12, marginHorizontal: 16 },
+  list:      { paddingBottom: 16 },
+  row:       {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 16,
     marginVertical: 4,
   },
-  name:     { flex: 2, fontSize: 16 },
-  count:    { width: 50, textAlign: 'center', fontSize: 16 },
-  input:    {
+  name:      { flex: 2, fontSize: 16 },
+  count:     { width: 50, textAlign: 'center', fontSize: 16 },
+  input:     {
     width: 60,
     borderWidth: 1,
     borderRadius: 4,
     padding: 4,
     marginHorizontal: 8,
   },
-  btn:      { padding: 6, borderRadius: 4 },
+  btn:       { padding: 6, borderRadius: 4 },
 });
