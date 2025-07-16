@@ -1,5 +1,5 @@
 // app/(tabs)/china.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Text,
   View,
@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+
 import {
   initDB,
   addArticle,
@@ -42,22 +44,37 @@ export default function ChinaStockScreen() {
   const [editName, setEditName] = useState('');
   const [editQuantity, setEditQuantity] = useState('');
 
+  // Initialize DB once
   useEffect(() => {
-    initDB().then(loadData).catch(console.warn);
+    initDB().catch(console.warn);
   }, []);
 
-  const loadData = async () => {
+  // Load data function
+  const loadData = useCallback(async () => {
     const list = await fetchArticles();
     setArticles(list);
     setTotal(await fetchTotalQuantity());
-  };
+  }, []);
+
+  // Load on mount
+  useEffect(() => {
+    loadData().catch(console.warn);
+  }, [loadData]);
+
+  // Reload whenever screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      loadData().catch(console.warn);
+    }, [loadData])
+  );
 
   const handleAdd = () => {
     const qty = parseInt(quantity, 10);
     if (!name.trim() || isNaN(qty) || qty < 0) return;
     addArticle(name.trim(), qty)
       .then(() => {
-        setName(''); setQuantity('');
+        setName('');
+        setQuantity('');
         Keyboard.dismiss();
         loadData();
       })
@@ -84,7 +101,7 @@ export default function ChinaStockScreen() {
 
   const handleDelete = (id: number) => {
     deleteArticle(id)
-      .then(loadData)
+      .then(() => loadData())
       .catch(console.warn);
   };
 
@@ -203,19 +220,45 @@ export default function ChinaStockScreen() {
 const styles = StyleSheet.create({
   heading: { fontSize: 28, fontWeight: 'bold', margin: 16 },
   form: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16 },
-  inputWrapper: { flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, marginRight: 8 },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    marginRight: 8,
+  },
   inputIcon: { marginRight: 4 },
   input: { flex: 1, height: 40 },
   fabAdd: { padding: 12, borderRadius: 8 },
   list: { padding: 16, paddingBottom: 120 },
-  card: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginBottom: 12, elevation: 2, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+  },
   cardText: { flex: 1, fontSize: 16 },
   badge: { backgroundColor: '#eee', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontWeight: 'bold' },
   actions: { flexDirection: 'row', marginLeft: 12 },
   actionBtn: { marginLeft: 8 },
   emptyText: { textAlign: 'center', marginTop: 32 },
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderTopWidth: 1 },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderTopWidth: 1,
+  },
   totalLabel: { fontSize: 16 },
   totalValue: { fontSize: 20, fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },

@@ -2,22 +2,12 @@
 import * as SQLite from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-/** Shared DB instance */
 let _db: SQLiteDatabase | null = null;
 async function getDB(): Promise<SQLiteDatabase> {
   if (!_db) {
     _db = await SQLite.openDatabaseAsync('stock-manager.db');
 
-    // ----- Old articles table (for ChinaStockScreen) -----
-    await _db.execAsync(`
-      CREATE TABLE IF NOT EXISTS articles (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
-        name     TEXT    NOT NULL,
-        quantity INTEGER NOT NULL
-      );
-    `);
-
-    // ----- New main/secondary stock tables -----
+    // Main (China) & Secondary (Brazil) stock
     await _db.execAsync(`
       CREATE TABLE IF NOT EXISTS main_stock (
         id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +23,7 @@ async function getDB(): Promise<SQLiteDatabase> {
       );
     `);
 
-    // ----- Pricing table -----
+    // Pricing
     await _db.execAsync(`
       CREATE TABLE IF NOT EXISTS prices (
         article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
@@ -41,7 +31,7 @@ async function getDB(): Promise<SQLiteDatabase> {
       );
     `);
 
-    // ----- Cart table -----
+    // Cart
     await _db.execAsync(`
       CREATE TABLE IF NOT EXISTS cart (
         article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
@@ -49,7 +39,7 @@ async function getDB(): Promise<SQLiteDatabase> {
       );
     `);
 
-    // ----- Client map pins -----
+    // Client pins
     await _db.execAsync(`
       CREATE TABLE IF NOT EXISTS clients (
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,46 +52,51 @@ async function getDB(): Promise<SQLiteDatabase> {
   return _db;
 }
 
-export type Article    = { id: number; name: string; quantity: number };
-export type Price      = { article_id: number; price: number };
-export type CartItem   = { article_id: number; quantity: number; name: string; price: number };
-export type ClientPin  = { id: number; name: string; latitude: number; longitude: number };
+// --- Types ---
+export type Article   = { id: number; name: string; quantity: number };
+export type Price     = { article_id: number; price: number };
+export type CartItem  = { article_id: number; quantity: number; name: string; price: number };
+export type ClientPin = { id: number; name: string; latitude: number; longitude: number };
 
-////////////////////////////////////////////////////////////////////////////////
-// OLD API – for ChinaStockScreen (articles table)
-////////////////////////////////////////////////////////////////////////////////
-
-/** Create articles table if missing */
+// --- Initialization ---
 export async function initDB(): Promise<void> {
   await getDB();
 }
 
-/** Add a new article record */
+////////////////////////////////////////////////////////////////////////////////
+// China Stock API (uses main_stock)
+////////////////////////////////////////////////////////////////////////////////
+/** Add or increment an article in the China stock */
 export async function addArticle(name: string, quantity: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(
-    `INSERT INTO articles (name, quantity) VALUES (?, ?);`,
+    `
+    INSERT INTO main_stock (name, quantity)
+      VALUES (?, ?)
+    ON CONFLICT(name) DO UPDATE
+      SET quantity = main_stock.quantity + excluded.quantity;
+    `,
     name,
     quantity
   );
 }
 
-/** Fetch all articles */
+/** Fetch all China articles */
 export async function fetchArticles(): Promise<Article[]> {
   const db = await getDB();
-  return db.getAllAsync<Article>(`SELECT * FROM articles;`);
+  return db.getAllAsync<Article>(`SELECT * FROM main_stock;`);
 }
 
-/** Total up all article quantities */
+/** Sum total China stock */
 export async function fetchTotalQuantity(): Promise<number> {
   const db = await getDB();
   const row = await db.getFirstAsync<{ total: number }>(
-    `SELECT SUM(quantity) as total FROM articles;`
+    `SELECT SUM(quantity) AS total FROM main_stock;`
   );
   return row?.total ?? 0;
 }
 
-/** Update an existing article */
+/** Update a China article */
 export async function updateArticle(
   id: number,
   name: string,
@@ -109,36 +104,34 @@ export async function updateArticle(
 ): Promise<void> {
   const db = await getDB();
   await db.runAsync(
-    `UPDATE articles SET name = ?, quantity = ? WHERE id = ?;`,
+    `UPDATE main_stock SET name = ?, quantity = ? WHERE id = ?;`,
     name,
     quantity,
     id
   );
 }
 
-/** Delete an article */
+/** Remove a China article */
 export async function deleteArticle(id: number): Promise<void> {
   const db = await getDB();
-  await db.runAsync(`DELETE FROM articles WHERE id = ?;`, id);
+  await db.runAsync(`DELETE FROM main_stock WHERE id = ?;`, id);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// NEW API – main_stock & secondary_stock (China ⇄ Brazil)
+// Stock Transfer (China ⇄ Brazil)
 ////////////////////////////////////////////////////////////////////////////////
-
-/** Fetch all from main_stock (China) */
+/** Alias for fetchArticles() */
 export async function fetchMainStock(): Promise<Article[]> {
-  const db = await getDB();
-  return db.getAllAsync<Article>(`SELECT * FROM main_stock;`);
+  return fetchArticles();
 }
 
-/** Fetch all from secondary_stock (Brazil) */
+/** Fetch all Brazil stock */
 export async function fetchSecondaryStock(): Promise<Article[]> {
   const db = await getDB();
   return db.getAllAsync<Article>(`SELECT * FROM secondary_stock;`);
 }
 
-/** Move quantity from main → secondary stock */
+/** Move qty from China → Brazil */
 export async function moveToSecondary(id: number, qty: number): Promise<void> {
   const db = await getDB();
   await db.execAsync('BEGIN TRANSACTION;');
@@ -181,7 +174,7 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
   }
 }
 
-/** Sell from the Brazil stock */
+/** Sell qty from Brazil */
 export async function sellSecondary(id: number, qty: number): Promise<void> {
   const db = await getDB();
   await db.execAsync('BEGIN TRANSACTION;');
@@ -208,21 +201,19 @@ export async function sellSecondary(id: number, qty: number): Promise<void> {
 ////////////////////////////////////////////////////////////////////////////////
 // Pricing API
 ////////////////////////////////////////////////////////////////////////////////
-
-/** Fetch all prices */
 export async function fetchPrices(): Promise<Price[]> {
   const db = await getDB();
   return db.getAllAsync<Price>(`SELECT * FROM prices;`);
 }
 
-/** Set or update price of one article */
 export async function setPrice(article_id: number, price: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(
     `
     INSERT INTO prices (article_id, price)
-    VALUES (?, ?)
-    ON CONFLICT(article_id) DO UPDATE SET price = excluded.price;
+      VALUES (?, ?)
+    ON CONFLICT(article_id) DO UPDATE
+      SET price = excluded.price;
     `,
     article_id,
     price
@@ -232,8 +223,6 @@ export async function setPrice(article_id: number, price: number): Promise<void>
 ////////////////////////////////////////////////////////////////////////////////
 // Cart API
 ////////////////////////////////////////////////////////////////////////////////
-
-/** Fetch cart items (with name & price) */
 export async function fetchCart(): Promise<CartItem[]> {
   const db = await getDB();
   return db.getAllAsync<CartItem>(
@@ -242,7 +231,7 @@ export async function fetchCart(): Promise<CartItem[]> {
       c.article_id,
       c.quantity,
       m.name,
-      IFNULL(p.price,0) AS price
+      IFNULL(p.price, 0) AS price
     FROM cart c
     JOIN main_stock m ON m.id = c.article_id
     LEFT JOIN prices p ON p.article_id = c.article_id;
@@ -250,38 +239,35 @@ export async function fetchCart(): Promise<CartItem[]> {
   );
 }
 
-/** Add/update one item in the cart */
 export async function addToCart(article_id: number, quantity: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(
     `
     INSERT INTO cart (article_id, quantity)
-    VALUES (?, ?)
-    ON CONFLICT(article_id) DO UPDATE SET quantity = excluded.quantity;
+      VALUES (?, ?)
+    ON CONFLICT(article_id) DO UPDATE
+      SET quantity = excluded.quantity;
     `,
     article_id,
     quantity
   );
 }
 
-/** Remove one from cart */
 export async function removeFromCart(article_id: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(`DELETE FROM cart WHERE article_id = ?;`, article_id);
 }
 
-/** Clear entire cart */
 export async function clearCart(): Promise<void> {
   const db = await getDB();
   await db.execAsync(`DELETE FROM cart;`);
 }
 
-/** Sum total cost of cart */
 export async function fetchCartTotal(): Promise<number> {
   const db = await getDB();
   const row = await db.getFirstAsync<{ total: number }>(
     `
-    SELECT SUM(c.quantity * IFNULL(p.price,0)) AS total
+    SELECT SUM(c.quantity * IFNULL(p.price, 0)) AS total
     FROM cart c
     LEFT JOIN prices p ON p.article_id = c.article_id;
     `
@@ -290,16 +276,13 @@ export async function fetchCartTotal(): Promise<number> {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Client Map Pins API
+// Client Pins API
 ////////////////////////////////////////////////////////////////////////////////
-
-/** Fetch all client pins */
 export async function fetchClients(): Promise<ClientPin[]> {
   const db = await getDB();
   return db.getAllAsync<ClientPin>(`SELECT * FROM clients;`);
 }
 
-/** Add a new pin */
 export async function addClient(
   name: string,
   latitude: number,
@@ -314,7 +297,6 @@ export async function addClient(
   );
 }
 
-/** Delete a pin */
 export async function deleteClient(id: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(`DELETE FROM clients WHERE id = ?;`, id);
