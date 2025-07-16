@@ -301,3 +301,44 @@ export async function deleteClient(id: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(`DELETE FROM clients WHERE id = ?;`, id);
 }
+
+/**
+ * Return quantity from Brazil (secondary_stock) back to main (China)
+ */
+export async function returnToMain(id: number, qty: number): Promise<void> {
+  const db = await getDB();
+  await db.execAsync('BEGIN TRANSACTION;');
+  try {
+    // check secondary
+    const sec = await db.getFirstAsync<{ quantity: number }>(
+      `SELECT quantity FROM secondary_stock WHERE id = ?;`,
+      id
+    );
+    if (!sec || sec.quantity < qty) {
+      throw new Error('Insufficient Brazil stock');
+    }
+
+    // subtract from secondary_stock
+    await db.runAsync(
+      `UPDATE secondary_stock
+       SET quantity = quantity - ?
+       WHERE id = ?;`,
+      qty,
+      id
+    );
+
+    // add back to main_stock
+    await db.runAsync(
+      `UPDATE main_stock
+       SET quantity = quantity + ?
+       WHERE id = ?;`,
+      qty,
+      id
+    );
+
+    await db.execAsync('COMMIT;');
+  } catch (e) {
+    await db.execAsync('ROLLBACK;');
+    throw e;
+  }
+}

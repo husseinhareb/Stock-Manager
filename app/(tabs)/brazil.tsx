@@ -1,5 +1,10 @@
 // app/(tabs)/brazil.tsx
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from 'react';
 import {
   View,
   Text,
@@ -17,11 +22,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+
 import {
   fetchMainStock,
   fetchSecondaryStock,
   fetchPrices,
   moveToSecondary,
+  setPrice,
+  returnToMain,             // ← make sure this is implemented in your db.ts
 } from '../../src/db';
 import type { Article, Price } from '../../src/db';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -42,6 +50,7 @@ export default function BrazilStockScreen() {
   const [brazilStock, setBrazilStock] = useState<Article[]>([]);
   const [prices, setPrices]           = useState<Price[]>([]);
   const [moveQty, setMoveQty]         = useState<Record<number,string>>({});
+  const [returnQty, setReturnQty]     = useState<Record<number,string>>({});
   const [priceModalVisible, setPriceModalVisible] = useState(false);
   const [priceModalArticle, setPriceModalArticle] = useState<Article|null>(null);
   const [priceInput, setPriceInput]   = useState('');
@@ -72,11 +81,9 @@ export default function BrazilStockScreen() {
   );
 
   // map article_id → price
-  const priceMap = useMemo(() => {
+  const priceMap = useMemo<Record<number, number>>(() => {
     const m: Record<number, number> = {};
-    prices.forEach(p => {
-      m[p.article_id] = p.price;
-    });
+    prices.forEach(p => (m[p.article_id] = p.price));
     return m;
   }, [prices]);
 
@@ -84,12 +91,13 @@ export default function BrazilStockScreen() {
   const mainTotalQty   = useMemo(() => mainStock.reduce((sum,a)=>sum+a.quantity, 0), [mainStock]);
   const brazilTotalQty = useMemo(() => brazilStock.reduce((sum,a)=>sum+a.quantity, 0), [brazilStock]);
   const brazilTotalVal = useMemo(() =>
-    brazilStock.reduce((sum,a)=>sum + a.quantity*(priceMap[a.id]||0), 0),
+    brazilStock.reduce((sum,a)=>sum + a.quantity * (priceMap[a.id]||0), 0),
     [brazilStock, priceMap]
   );
 
+  // Move China → Brazil
   const onMove = async (item: Article) => {
-    const q = parseInt(moveQty[item.id]||'0',10);
+    const q = parseInt(moveQty[item.id]||'0', 10);
     if (q <= 0) {
       return Alert.alert('Enter a positive quantity to move');
     }
@@ -100,28 +108,43 @@ export default function BrazilStockScreen() {
       setPriceModalArticle(item);
       setPriceInput('');
       setPriceModalVisible(true);
-    } catch (e: any) {
+    } catch (e:any) {
       Alert.alert('Error moving stock', e.message);
     }
   };
 
+  // Return Brazil → China
+  const onReturn = async (item: Article) => {
+    const q = parseInt(returnQty[item.id]||'0', 10);
+    if (q <= 0) {
+      return Alert.alert('Enter a positive quantity to return');
+    }
+    try {
+      await returnToMain(item.id, q);
+      setReturnQty(m=>({...m,[item.id]:''}));
+      await loadData();
+    } catch (e:any) {
+      Alert.alert('Error returning stock', e.message);
+    }
+  };
+
+  // Save unit price for newly moved item
   const onSavePrice = async () => {
     if (!priceModalArticle) return;
     const p = parseFloat(priceInput);
     if (isNaN(p) || p < 0) return Alert.alert('Invalid price');
     try {
-      await fetchPrices(); // ensure price table exists
-      await import('../../src/db').then(db => db.setPrice(priceModalArticle.id, p));
+      await setPrice(priceModalArticle.id, p);
       setPriceModalVisible(false);
       await loadData();
-    } catch (e: any) {
+    } catch (e:any) {
       Alert.alert('Error saving price', e.message);
     }
   };
 
   const sections: SectionData[] = [
-    { title: `Main Stock (China) — Total: ${mainTotalQty}`, data: mainStock, type: 'move' },
-    { title: `Brazil Stock — Qty: ${brazilTotalQty} • Value: ${brazilTotalVal.toFixed(2)}`, data: brazilStock, type: 'view' },
+    { title: 'China Stock', data: mainStock, type: 'move' },
+    { title: 'Brazil Stock', data: brazilStock, type: 'view' },
   ];
 
   return (
@@ -130,7 +153,7 @@ export default function BrazilStockScreen() {
         style={styles.container}
         behavior={Platform.select({ ios: 'padding' })}
       >
-        <Text style={[styles.heading, { color: theme.primary }]}>
+        <Text style={[styles.title, { color: theme.primary }]}>
           Brazil Stock
         </Text>
 
@@ -138,18 +161,19 @@ export default function BrazilStockScreen() {
           sections={sections}
           keyExtractor={item => item.id.toString()}
           renderSectionHeader={({ section }) => (
-            <Text style={[styles.subheader, { color: theme.primary }]}>
+            <Text style={[styles.sectionHeader, { color: theme.primary }]}>
               {section.title}
             </Text>
           )}
           renderItem={({ item, section }) => {
             if (section.type === 'move') {
+              // Moving from China to Brazil
               return (
-                <View style={styles.row}>
-                  <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
-                  <Text style={[styles.count, { color: theme.text }]}>{item.quantity}</Text>
+                <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+                  <Text style={[styles.cardText, { color: theme.text }]}>{item.name}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{item.quantity}</Text>
                   <TextInput
-                    style={[styles.input, { borderColor: theme.border, color: theme.text }]}
+                    style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
                     placeholder="Qty"
                     placeholderTextColor={theme.placeholder}
                     keyboardType="numeric"
@@ -157,7 +181,7 @@ export default function BrazilStockScreen() {
                     onChangeText={t => setMoveQty(m=>({...m,[item.id]:t}))}
                   />
                   <TouchableOpacity
-                    onPress={()=>onMove(item)}
+                    onPress={() => onMove(item)}
                     style={[styles.btn, { backgroundColor: theme.accent }]}
                   >
                     <MaterialIcons name="arrow-forward-ios" size={20} color="#fff" />
@@ -165,31 +189,68 @@ export default function BrazilStockScreen() {
                 </View>
               );
             } else {
-              const price = priceMap[item.id]||0;
-              const total = item.quantity * price;
+              // Viewing Brazil stock with price & return
+              const unitPrice = priceMap[item.id] || 0;
+              const lineTotal = (item.quantity * unitPrice).toFixed(2);
               return (
-                <View style={styles.viewRow}>
-                  <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
-                  <Text style={[styles.count, { color: theme.text }]}>{item.quantity}</Text>
-                  <Text style={[styles.count, { color: theme.text }]}>{price.toFixed(2)}</Text>
-                  <Text style={[styles.count, { color: theme.text }]}>{total.toFixed(2)}</Text>
+                <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+                  <Text style={[styles.cardText, { color: theme.text }]}>{item.name}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{item.quantity}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{unitPrice.toFixed(2)}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{lineTotal}</Text>
+                  <TextInput
+                    style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
+                    placeholder="Ret"
+                    placeholderTextColor={theme.placeholder}
+                    keyboardType="numeric"
+                    value={returnQty[item.id]}
+                    onChangeText={t => setReturnQty(m=>({...m,[item.id]:t}))}
+                  />
+                  <TouchableOpacity
+                    onPress={() => onReturn(item)}
+                    style={[styles.btn, { backgroundColor: '#FFA500' }]}
+                  >
+                    <MaterialIcons name="arrow-back-ios" size={20} color="#fff" />
+                  </TouchableOpacity>
                 </View>
               );
             }
           }}
+          renderSectionFooter={({ section }) => {
+            if (section.type === 'move') {
+              return (
+                <View style={styles.sectionFooter}>
+                  <Text style={[styles.footerText, { color: theme.text }]}>
+                    Total China Qty: {mainTotalQty}
+                  </Text>
+                </View>
+              );
+            }
+            return null;
+          }}
           contentContainerStyle={styles.list}
+          ListFooterComponent={() => (
+            <View style={styles.sectionFooter}>
+              <Text style={[styles.footerText, { color: theme.text }]}>
+                Total Brazil Qty: {brazilTotalQty}
+              </Text>
+              <Text style={[styles.footerText, { color: theme.text }]}>
+                Total Brazil Value: {brazilTotalVal.toFixed(2)}
+              </Text>
+            </View>
+          )}
         />
 
         {/* Price Modal */}
         <Modal visible={priceModalVisible} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+            <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
               <Text style={[styles.modalTitle, { color: theme.primary }]}>
-                Set price for "{priceModalArticle?.name}"
+                Set price for “{priceModalArticle?.name}”
               </Text>
               <TextInput
                 style={[styles.modalInput, { borderColor: theme.border, color: theme.text }]}
-                placeholder="Price"
+                placeholder="Unit Price"
                 placeholderTextColor={theme.placeholder}
                 keyboardType="numeric"
                 value={priceInput}
@@ -212,25 +273,59 @@ export default function BrazilStockScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:    { flex: 1 },
-  heading:      { fontSize: 28, fontWeight: 'bold', margin: 16 },
-  subheader:    { fontSize: 22, fontWeight: 'bold', marginVertical: 8, marginHorizontal: 16 },
-  list:         { paddingBottom: 16 },
-  row:          { flexDirection:'row', alignItems:'center', marginHorizontal:16, marginVertical:4 },
-  viewRow:      { flexDirection:'row', alignItems:'center', marginHorizontal:16, marginVertical:4 },
-  name:         { flex:2, fontSize:16 },
-  count:        { width:60, textAlign:'center', fontSize:16 },
-  input:        { width:60, borderWidth:1, borderRadius:4, padding:4, marginHorizontal:8 },
-  btn:          { padding:6, borderRadius:4 },
-  modalOverlay: {
-    flex:1, backgroundColor:'rgba(0,0,0,0.3)',
-    justifyContent:'center', alignItems:'center'
+  container:       { flex: 1 },
+  title:           { fontSize: 28, fontWeight: 'bold', margin: 16 },
+  sectionHeader:   { fontSize: 20, fontWeight: '600', marginHorizontal: 16, marginTop: 12 },
+  list:            { paddingBottom: 16 },
+  card:            {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 8,
+    elevation: 2,
   },
-  modalContent: {
-    width:'80%', padding:16, borderRadius:8
+  cardText:        { flex: 1, fontSize: 16 },
+  cell:            {
+    width: 60,
+    textAlign: 'center',
+    fontSize: 16,
+    marginHorizontal: 8,
   },
-  modalTitle:   { fontSize:20, marginBottom:12 },
-  modalInput:   { borderWidth:1, borderRadius:6, padding:8, marginBottom:12 },
-  modalActions: { flexDirection:'row', justifyContent:'flex-end' },
-  modalBtn:     { padding:10, borderRadius:6, marginLeft:12 }
+  smallInput:      {
+    width: 50,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 4,
+    marginHorizontal: 4,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  btn:             { padding: 6, borderRadius: 6 },
+  sectionFooter:   {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+  },
+  footerText:      { fontSize: 16, fontWeight: '600' },
+  modalOverlay:    {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modal:           {
+    width: '80%',
+    padding: 16,
+    borderRadius: 8,
+    elevation: 4,
+  },
+  modalTitle:      { fontSize: 18, fontWeight: '600', marginBottom: 12 },
+  modalInput:      { borderWidth: 1, borderRadius: 6, padding: 8, marginBottom: 16, fontSize: 16 },
+  modalActions:    { flexDirection: 'row', justifyContent: 'flex-end' },
+  modalBtn:        { padding: 10, borderRadius: 6, marginLeft: 12 },
 });
