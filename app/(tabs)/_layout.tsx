@@ -1,11 +1,14 @@
 // app/(tabs)/_layout.tsx
+import React from 'react';
 import { Tabs } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
-import React from 'react';
 
 export default function TabLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs
+      initialRouteName="china"
+      screenOptions={{ headerShown: false }}
+    >
       <Tabs.Screen
         name="china"
         options={{

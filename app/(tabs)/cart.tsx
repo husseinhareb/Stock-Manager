@@ -62,15 +62,15 @@ export default function CartScreen() {
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
 
-  const [brazilStock, setBrazilStock]   = useState<Article[]>([]);
-  const [prices, setPrices]             = useState<Price[]>([]);
+  const [brazilStock, setBrazilStock] = useState<Article[]>([]);
+  const [prices, setPrices] = useState<Price[]>([]);
   const [clientModalVisible, setClientModalVisible] = useState(false);
-  const [clientName, setClientName]               = useState('');
-  const [isBuilding, setIsBuilding]               = useState(false);
+  const [clientName, setClientName] = useState('');
+  const [isBuilding, setIsBuilding] = useState(false);
 
-  const [selection, setSelection]     = useState<Record<number,string>>({});
-  const [savedCarts, setSavedCarts]   = useState<SavedSummary[]>([]);
-  const [detailModal, setDetailModal] = useState<SavedCartDetail|null>(null);
+  const [selection, setSelection] = useState<Record<number, string>>({});
+  const [savedCarts, setSavedCarts] = useState<SavedSummary[]>([]);
+  const [detailModal, setDetailModal] = useState<SavedCartDetail | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -91,7 +91,7 @@ export default function CartScreen() {
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const priceMap = useMemo(() => {
-    const m: Record<number,number> = {};
+    const m: Record<number, number> = {};
     prices.forEach(p => { m[p.article_id] = p.price; });
     return m;
   }, [prices]);
@@ -100,13 +100,13 @@ export default function CartScreen() {
     return brazilStock
       .map(a => {
         const raw = selection[a.id];
-        const qty = parseInt(raw||'0', 10);
+        const qty = parseInt(raw || '0', 10);
         if (qty > 0) {
           return {
-            id:        a.id,
-            name:      a.name,
-            quantity:  qty,
-            unitPrice: priceMap[a.id]||0,
+            id: a.id,
+            name: a.name,
+            quantity: qty,
+            unitPrice: priceMap[a.id] || 0,
             available: a.quantity,
           };
         }
@@ -116,7 +116,7 @@ export default function CartScreen() {
   }, [selection, brazilStock, priceMap]);
 
   const currentTotal = useMemo(
-    () => currentItems.reduce((sum,it)=>sum + it.quantity*it.unitPrice, 0),
+    () => currentItems.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0),
     [currentItems]
   );
 
@@ -126,7 +126,7 @@ export default function CartScreen() {
         <td>${it.name}</td>
         <td style="text-align:center">${it.quantity}</td>
         <td style="text-align:right">${it.unitPrice.toFixed(2)}</td>
-        <td style="text-align:right">${(it.quantity*it.unitPrice).toFixed(2)}</td>
+        <td style="text-align:right">${(it.quantity * it.unitPrice).toFixed(2)}</td>
       </tr>
     `).join('');
     const html = `
@@ -165,8 +165,8 @@ export default function CartScreen() {
         clientName.trim(),
         currentItems.map(it => ({
           article_id: it.id,
-          quantity:   it.quantity,
-          price:      it.unitPrice
+          quantity: it.quantity,
+          price: it.unitPrice
         }))
       );
       // 3) reload all data
@@ -204,7 +204,7 @@ export default function CartScreen() {
             <ScrollView style={styles.list}>
               {brazilStock.map(a => {
                 const raw = selection[a.id];
-                const qty = parseInt(raw||'0',10);
+                const qty = parseInt(raw || '0', 10);
                 const checked = raw !== undefined;
                 return (
                   <View key={a.id}
@@ -239,7 +239,7 @@ export default function CartScreen() {
                     </Text>
 
                     <Text style={[styles.cell, { color: theme.text }]}>
-                      ${(priceMap[a.id]||0).toFixed(2)}
+                      ${(priceMap[a.id] || 0).toFixed(2)}
                     </Text>
 
                     <TextInput
@@ -317,9 +317,9 @@ export default function CartScreen() {
                     client: item.client,
                     total: item.total,
                     items: lines.map(l => ({
-                      id:        l.article_id,
-                      name:      l.name,
-                      quantity:  l.quantity,
+                      id: l.article_id,
+                      name: l.name,
+                      quantity: l.quantity,
                       unitPrice: l.price,
                       available: 0,
                     })),
@@ -398,10 +398,10 @@ export default function CartScreen() {
                 { backgroundColor: theme.card, shadowColor: theme.shadow },
               ]}
             >
-              <Text style={[styles.modalTitle, { color: theme.primary }]}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
                 {detailModal?.client}
               </Text>
-              <ScrollView style={{ maxHeight: '60%' }}>
+              <ScrollView style={[styles.modalList, { backgroundColor: theme.card }]}>
                 {detailModal?.items.map((it, i) => (
                   <View key={i} style={styles.card}>
                     <Text style={[styles.cardText, { color: theme.text }]}>
@@ -422,15 +422,15 @@ export default function CartScreen() {
               <View style={styles.modalActions}>
                 <Pressable
                   onPress={() => detailModal && shareReceipt(detailModal)}
-                  style={styles.modalBtn}
+                  style={[styles.modalBtn, { backgroundColor: theme.accent }]}
                 >
-                  <Text>Share PDF</Text>
+                  <Text style={styles.btnText}>Share PDF</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => setDetailModal(null)}
                   style={[styles.modalBtn, { backgroundColor: theme.accent }]}
                 >
-                  <Text style={{ color: '#fff' }}>Close</Text>
+                  <Text style={styles.btnText}>Close</Text>
                 </Pressable>
               </View>
             </View>
@@ -442,65 +442,66 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:      { flex: 1 },
-  headerRow:      { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginHorizontal:16,marginTop:32 },
-  heading:        { fontSize:28, fontWeight:'bold', marginVertical:16 },
-  addBtn:         { padding:8, borderRadius:6 },
-  builder:        { flex:1 },
-  subheading:     { fontSize:20, fontWeight:'600', marginHorizontal:16, marginBottom:8 },
-  list:           { paddingBottom:16 },
-  card:           {
-    flexDirection:'row',
-    alignItems:'center',
-    padding:12,
-    marginHorizontal:16,
-    marginVertical:4,
-    borderRadius:10,
-    elevation:2,
-    shadowOffset:{width:0,height:1},
-    shadowOpacity:0.2,
+  container: { flex: 1 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 16, marginTop: 32 },
+  heading: { fontSize: 28, fontWeight: 'bold', marginVertical: 16 },
+  addBtn: { padding: 8, borderRadius: 6 },
+  builder: { flex: 1 },
+  subheading: { fontSize: 20, fontWeight: '600', marginHorizontal: 16, marginBottom: 8 },
+  list: { paddingBottom: 16 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 10,
+    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
   },
-  cardText:       { flex:1, fontSize:16 },
-  cell:           { width:80, textAlign:'center', fontSize:16, marginHorizontal:8 },
-  itemName:       { flex:1, fontSize:16, marginHorizontal:8 },
-  smallInput:     {
-    width:50,
-    borderWidth:1,
-    borderRadius:6,
-    padding:4,
-    textAlign:'center',
-    marginHorizontal:8,
+  cardText: { flex: 1, fontSize: 16 },
+  cell: { width: 80, textAlign: 'center', fontSize: 16, marginHorizontal: 8 },
+  itemName: { flex: 1, fontSize: 16, marginHorizontal: 8 },
+  smallInput: {
+    width: 50,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 4,
+    textAlign: 'center',
+    marginHorizontal: 8,
   },
-  btn:            { padding:6, borderRadius:6 },
-  footer:         {
-    borderTopWidth:1,
-    padding:12,
-    marginHorizontal:16,
+  btn: { padding: 6, borderRadius: 6 },
+  footer: {
+    borderTopWidth: 1,
+    padding: 12,
+    marginHorizontal: 16,
   },
-  footerText:     { fontSize:18, fontWeight:'600', marginVertical:4 },
-  footerButtons:  { flexDirection:'row', justifyContent:'space-between', marginTop:8 },
-  btnText:        { color:'#fff', fontWeight:'600' },
-  modalOverlay:   {
-    flex:1,
-    backgroundColor:'rgba(0,0,0,0.5)',
-    justifyContent:'center',
-    alignItems:'center',
+  footerText: { fontSize: 18, fontWeight: '600', marginVertical: 4 },
+  footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  btnText: { color: '#fff', fontWeight: '600' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  modal:          {
-    width:'80%',
-    padding:16,
-    borderRadius:8,
-    elevation:4,
+  modalList: { maxHeight: '60%', marginBottom: 16 },
+  modal: {
+    width: '80%',
+    padding: 16,
+    borderRadius: 8,
+    elevation: 4,
   },
-  modalTitle:     { fontSize:18, fontWeight:'600', marginBottom:12 },
-  modalInput:     {
-    borderWidth:1,
-    borderRadius:6,
-    padding:8,
-    fontSize:16,
-    marginBottom:16,
+  modalTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 8,
+    fontSize: 16,
+    marginBottom: 16,
   },
-  modalActions:   { flexDirection:'row', justifyContent:'flex-end' },
-  modalBtn:       { padding:10, borderRadius:6, marginLeft:12 },
-  emptyText:      { textAlign:'center', marginTop:32 },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end' },
+  modalBtn: { padding: 10, borderRadius: 6, marginLeft: 12 },
+  emptyText: { textAlign: 'center', marginTop: 32 },
 });

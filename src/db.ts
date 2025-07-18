@@ -169,12 +169,14 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
     );
     if (!main || main.quantity < qty) throw new Error('Insufficient China stock');
 
+    // 1) subtract from main_stock
     await db.runAsync(
       `UPDATE main_stock SET quantity = quantity - ? WHERE id = ?;`,
       qty,
       id
     );
 
+    // 2) upsert into secondary_stock
     const sec = await db.getFirstAsync<{ quantity: number }>(
       `SELECT quantity FROM secondary_stock WHERE id = ?;`,
       id
@@ -195,6 +197,12 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
       );
     }
 
+    // 3) **delete** any main_stock row now at zero
+    await db.runAsync(
+      `DELETE FROM main_stock WHERE id = ? AND quantity = 0;`,
+      id
+    );
+
     await db.execAsync(`RELEASE SAVEPOINT sp_move;`);
   } catch (e) {
     await db.execAsync(`ROLLBACK TO SAVEPOINT sp_move;`);
@@ -212,9 +220,16 @@ export async function sellSecondary(id: number, qty: number): Promise<void> {
     );
     if (!sec || sec.quantity < qty) throw new Error('Insufficient Brazil stock');
 
+    // subtract from secondary_stock
     await db.runAsync(
       `UPDATE secondary_stock SET quantity = quantity - ? WHERE id = ?;`,
       qty,
+      id
+    );
+
+    // **delete** any secondary_stock row now at zero
+    await db.runAsync(
+      `DELETE FROM secondary_stock WHERE id = ? AND quantity = 0;`,
       id
     );
 
@@ -224,6 +239,7 @@ export async function sellSecondary(id: number, qty: number): Promise<void> {
     throw e;
   }
 }
+
 
 export async function returnToMain(id: number, qty: number): Promise<void> {
   const db = await getDB();

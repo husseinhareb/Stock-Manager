@@ -161,7 +161,7 @@ export default function ChinaStockScreen() {
 
           {/* List */}
           <FlatList
-            data={articles}
+            data={articles.filter(a => a.quantity > 0)}
             keyExtractor={item => item.id.toString()}
             renderItem={renderItem}
             contentContainerStyle={styles.list}
