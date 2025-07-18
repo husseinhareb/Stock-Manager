@@ -1,43 +1,43 @@
-// app/(tabs)/cart.tsx
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-} from 'react';
-import {
-  View,
-  Text,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  SectionList,
-  TextInput,
-  TouchableOpacity,
-  Modal,
-  Pressable,
-  Alert,
-  ScrollView,
-} from 'react-native';
+// app/(tabs)/client.tsx
 import { MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { useFocusEffect } from '@react-navigation/native';
-
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
-  fetchSecondaryStock,
-  fetchPrices,
-  sellSecondary,
-  saveCart as persistCart,
-  fetchSavedCarts,
-  fetchCartItems,
-} from '../../src/db';
-import type { Article, Price } from '../../src/db';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors } from '@/constants/Colors';
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  SectionList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-type CartItem = {
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import type { Article, Price } from '../../src/db';
+import {
+  fetchClientItems,
+  fetchPrices,
+  fetchSavedClients,
+  fetchSecondaryStock,
+  saveClient as persistClient,
+  sellSecondary,
+} from '../../src/db';
+
+type ClientItem = {
   id: number;
   name: string;
   quantity: number;
@@ -52,13 +52,13 @@ type SavedSummary = {
   total: number;
 };
 
-type SavedCartDetail = {
+type SavedClientDetail = {
   client: string;
   total: number;
-  items: CartItem[];
+  items: ClientItem[];
 };
 
-export default function CartScreen() {
+export default function ClientScreen() {
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
 
@@ -69,19 +69,19 @@ export default function CartScreen() {
   const [isBuilding, setIsBuilding] = useState(false);
 
   const [selection, setSelection] = useState<Record<number, string>>({});
-  const [savedCarts, setSavedCarts] = useState<SavedSummary[]>([]);
-  const [detailModal, setDetailModal] = useState<SavedCartDetail | null>(null);
+  const [savedClients, setSavedClients] = useState<SavedSummary[]>([]);
+  const [detailModal, setDetailModal] = useState<SavedClientDetail | null>(null);
 
   const loadData = useCallback(async () => {
     try {
       const [br, pr, saved] = await Promise.all([
         fetchSecondaryStock(),
         fetchPrices(),
-        fetchSavedCarts(),
+        fetchSavedClients(),
       ]);
       setBrazilStock(br);
       setPrices(pr);
-      setSavedCarts(saved);
+      setSavedClients(saved);
     } catch (e: any) {
       Alert.alert('Load failed', e.message);
     }
@@ -96,7 +96,7 @@ export default function CartScreen() {
     return m;
   }, [prices]);
 
-  const currentItems: CartItem[] = useMemo(() => {
+  const currentItems: ClientItem[] = useMemo(() => {
     return brazilStock
       .map(a => {
         const raw = selection[a.id];
@@ -112,7 +112,7 @@ export default function CartScreen() {
         }
         return null;
       })
-      .filter((x): x is CartItem => !!x);
+      .filter((x): x is ClientItem => !!x);
   }, [selection, brazilStock, priceMap]);
 
   const currentTotal = useMemo(
@@ -120,8 +120,8 @@ export default function CartScreen() {
     [currentItems]
   );
 
-  const shareReceipt = async (cart: SavedCartDetail) => {
-    const rows = cart.items.map(it => `
+  const shareReceipt = async (client: SavedClientDetail) => {
+    const rows = client.items.map(it => `
       <tr>
         <td>${it.name}</td>
         <td style="text-align:center">${it.quantity}</td>
@@ -130,13 +130,13 @@ export default function CartScreen() {
       </tr>
     `).join('');
     const html = `
-      <h1>Receipt: ${cart.client}</h1>
+      <h1>Receipt: ${client.client}</h1>
       <table width="100%" style="border-collapse:collapse" border="1" cellpadding="5">
         <tr><th align="left">Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>
         ${rows}
         <tr>
           <td colspan="3" style="text-align:right"><strong>Grand Total</strong></td>
-          <td style="text-align:right"><strong>${cart.total.toFixed(2)}</strong></td>
+          <td style="text-align:right"><strong>${client.total.toFixed(2)}</strong></td>
         </tr>
       </table>
     `;
@@ -148,7 +148,7 @@ export default function CartScreen() {
     }
   };
 
-  const saveCart = async () => {
+  const saveClient = async () => {
     if (!clientName.trim()) {
       return Alert.alert('Please enter client name');
     }
@@ -161,7 +161,7 @@ export default function CartScreen() {
         currentItems.map(it => sellSecondary(it.id, it.quantity))
       );
       // 2) persist in DB
-      await persistCart(
+      await persistClient(
         clientName.trim(),
         currentItems.map(it => ({
           article_id: it.id,
@@ -176,7 +176,7 @@ export default function CartScreen() {
       setSelection({});
       setIsBuilding(false);
     } catch (e: any) {
-      Alert.alert('Error saving cart', e.message);
+      Alert.alert('Error saving client', e.message);
     }
   };
 
@@ -187,7 +187,7 @@ export default function CartScreen() {
         behavior={Platform.select({ ios: 'padding' })}
       >
         <View style={styles.headerRow}>
-          <Text style={[styles.heading, { color: theme.primary }]}>Carts</Text>
+          <Text style={[styles.heading, { color: theme.primary }]}>Clients</Text>
           <TouchableOpacity
             onPress={() => setClientModalVisible(true)}
             style={[styles.addBtn, { backgroundColor: theme.accent }]}
@@ -274,10 +274,10 @@ export default function CartScreen() {
               </Text>
               <View style={styles.footerButtons}>
                 <TouchableOpacity
-                  onPress={saveCart}
+                  onPress={saveClient}
                   style={[styles.btn, { backgroundColor: theme.accent }]}
                 >
-                  <Text style={styles.btnText}>Save Cart</Text>
+                  <Text style={styles.btnText}>Save Client</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() =>
@@ -296,12 +296,12 @@ export default function CartScreen() {
           </View>
         ) : (
           <SectionList
-            sections={[{ title: 'Saved', data: savedCarts }]}
+            sections={[{ title: 'Saved', data: savedClients }]}
             keyExtractor={(item) => item.id.toString()}
             renderSectionHeader={() =>
-              savedCarts.length === 0 ? (
+              savedClients.length === 0 ? (
                 <Text style={[styles.emptyText, { color: theme.placeholder }]}>
-                  No carts yet. Tap + to create one.
+                  No clients yet. Tap + to create one.
                 </Text>
               ) : null
             }
@@ -312,7 +312,7 @@ export default function CartScreen() {
                   { backgroundColor: theme.card, shadowColor: theme.shadow },
                 ]}
                 onPress={async () => {
-                  const lines = await fetchCartItems(item.id);
+                  const lines = await fetchClientItems(item.id);
                   setDetailModal({
                     client: item.client,
                     total: item.total,

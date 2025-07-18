@@ -124,11 +124,11 @@ export default function ChinaStockScreen() {
 
   return (
     <>
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.select({ ios: 'padding', android: undefined })}
-        >
+      <SafeAreaView
+        edges={['top', 'left', 'right']}
+        style={{ flex: 1, backgroundColor: theme.background }}
+      >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding', android: undefined })}>
           <Text style={[styles.heading, { color: theme.primary }]}>China Stock</Text>
 
           {/* Add Form */}

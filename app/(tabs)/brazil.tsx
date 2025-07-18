@@ -20,7 +20,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import {
@@ -88,10 +88,16 @@ export default function BrazilStockScreen() {
     return m;
   }, [prices]);
 
-  const mainTotalQty = useMemo(() => mainStock.reduce((s, a) => s + a.quantity, 0), [mainStock]);
-  const brazilTotalQty = useMemo(() => brazilStock.reduce((s, a) => s + a.quantity, 0), [brazilStock]);
-  const brazilTotalVal = useMemo(() =>
-    brazilStock.reduce((s, a) => s + a.quantity * (priceMap[a.id] || 0), 0),
+  const mainTotalQty = useMemo(
+    () => mainStock.reduce((s, a) => s + a.quantity, 0),
+    [mainStock]
+  );
+  const brazilTotalQty = useMemo(
+    () => brazilStock.reduce((s, a) => s + a.quantity, 0),
+    [brazilStock]
+  );
+  const brazilTotalVal = useMemo(
+    () => brazilStock.reduce((s, a) => s + a.quantity * (priceMap[a.id] || 0), 0),
     [brazilStock, priceMap]
   );
 
@@ -147,14 +153,11 @@ export default function BrazilStockScreen() {
     },
   ];
 
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView style={styles.container}
         behavior={Platform.select({ ios: 'padding' })}>
-        <Text style={[styles.heading, { color: theme.primary }]}>
-          Brazil Stock
-        </Text>
+        <Text style={[styles.heading, { color: theme.primary }]}>Brazil Stock</Text>
 
         <SectionList
           sections={sections}
@@ -165,67 +168,50 @@ export default function BrazilStockScreen() {
             </Text>
           )}
           renderItem={({ item, section }) => {
-            if (section.type === 'move') {
-              return (
-                <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-                  <Text style={[styles.cardText, { color: theme.text }]}>{item.name}</Text>
-                  <View style={styles.badge}>
-                    <Text style={[styles.badgeText, { color: theme.badgeText }]}>{item.quantity}</Text>
-                  </View>
-                  <View style={styles.actions}>
-                    <TextInput
-                      style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
-                      placeholder="Qty"
-                      placeholderTextColor={theme.placeholder}
-                      keyboardType="numeric"
-                      value={moveQty[item.id]}
-                      onChangeText={t => setMoveQty(m => ({ ...m, [item.id]: t }))}
-                    />
-                    <TouchableOpacity
-                      onPress={() => onMove(item)}
-                      style={[styles.btn, { backgroundColor: theme.accent }]}
-                    >
-                      <MaterialIcons name="arrow-forward-ios" size={20} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
+            const unit = priceMap[item.id] || 0;
+            const total = (unit * item.quantity).toFixed(2);
+            return (
+              <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+                <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                <View style={[styles.badge, { backgroundColor: theme.accent }]}>
+                  <Text style={styles.badgeText}>{item.quantity}</Text>
                 </View>
-              );
-            } else {
-              const unit = priceMap[item.id] || 0;
-              const total = (unit * item.quantity).toFixed(2);
-              return (
-                <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-                  <Text style={[styles.cardText, { color: theme.text }]}>{item.name}</Text>
-                  <View style={styles.badge}>
-                    <Text style={[styles.badgeText, { color: theme.badgeText }]}>{item.quantity}</Text>
-                  </View>
-                  <Text style={[styles.cell, { color: theme.text }]}>{unit.toFixed(2)}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>{total}</Text>
-                  <View style={styles.actions}>
-                    <TextInput
-                      style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
-                      placeholder="Ret"
-                      placeholderTextColor={theme.placeholder}
-                      keyboardType="numeric"
-                      value={returnQty[item.id]}
-                      onChangeText={t => setReturnQty(m => ({ ...m, [item.id]: t }))}
-                    />
-                    <TouchableOpacity
-                      onPress={() => onReturn(item)}
-                      style={[styles.btn, { backgroundColor: '#FF3B30' }]}
-                    >
-                      <MaterialIcons name="arrow-back-ios" size={20} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
+                {section.type === 'view' && (
+                  <>
+                    <Text style={[styles.cell, { color: theme.text }]}>{`$${unit.toFixed(2)}`}</Text>
+                    <Text style={[styles.cell, { color: theme.text }]}>{`$${total}`}</Text>
+                  </>
+                )}
+                <View style={styles.actions}>
+                  <TextInput
+                    style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
+                    placeholder={section.type === 'move' ? 'Qty' : 'Ret'}
+                    placeholderTextColor={theme.placeholder}
+                    keyboardType="numeric"
+                    value={section.type === 'move' ? moveQty[item.id] : returnQty[item.id]}
+                    onChangeText={t => section.type === 'move'
+                      ? setMoveQty(m => ({ ...m, [item.id]: t }))
+                      : setReturnQty(m => ({ ...m, [item.id]: t }))
+                    }
+                  />
+                  <TouchableOpacity
+                    onPress={() => section.type === 'move' ? onMove(item) : onReturn(item)}
+                    style={[styles.actionBtn, { backgroundColor: section.type === 'move' ? theme.primary : theme.accent }]}
+                  >
+                    <FontAwesome name={section.type === 'move' ? 'arrow-right' : 'arrow-left'} size={16} color="#fff" />
+                  </TouchableOpacity>
                 </View>
-              );
-            }
+              </View>
+            );
           }}
           renderSectionFooter={({ section }) => {
             if (section.type === 'move') {
               return (
                 <View style={styles.sectionFooter}>
-                  <Text style={styles.footerText}>Total China Qty: {mainTotalQty}</Text>
+                  <Text style={[styles.footerText, { color: theme.text }]}>
+                    <FontAwesome name="cubes" size={20} color={theme.primary} />
+                    Total China Articles: {mainTotalQty}
+                  </Text>
                 </View>
               );
             }
@@ -233,9 +219,15 @@ export default function BrazilStockScreen() {
           }}
           contentContainerStyle={styles.list}
           ListFooterComponent={() => (
-            <View style={styles.sectionFooter}>
-              <Text style={styles.footerText}>Total Brazil Qty: {brazilTotalQty}</Text>
-              <Text style={styles.footerText}>Total Brazil Value: {brazilTotalVal.toFixed(2)}</Text>
+            <View style={[styles.footerContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <View style={styles.footerItem}>
+                <FontAwesome name="cubes" size={20} color={theme.primary} />
+                <Text style={[styles.footerText, { color: theme.text }]}>Total Brazil Articles: {brazilTotalQty}</Text>
+              </View>
+              <View style={styles.footerItem}>
+                <FontAwesome name="dollar" size={20} color={theme.primary} />
+                <Text style={[styles.footerText, { color: theme.text }]}>Total Brazil Value: ${brazilTotalVal.toFixed(2)}</Text>
+              </View>
             </View>
           )}
         />
@@ -244,9 +236,7 @@ export default function BrazilStockScreen() {
         <Modal visible={priceModalVisible} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-              <Text style={[styles.modalTitle, { color: theme.primary }]}>
-                Set price for “{priceModalArticle?.name}”
-              </Text>
+              <Text style={[styles.modalTitle, { color: theme.primary }]}>Set price for “{priceModalArticle?.name}”</Text>
               <TextInput
                 style={[styles.modalInput, { borderColor: theme.border, color: theme.text }]}
                 placeholder="Unit Price"
@@ -258,9 +248,9 @@ export default function BrazilStockScreen() {
               />
               <View style={styles.modalActions}>
                 <Pressable onPress={() => setPriceModalVisible(false)} style={styles.modalBtn}>
-                  <Text>Cancel</Text>
+                  <Text style={{ color: theme.text }}>Cancel</Text>
                 </Pressable>
-                <Pressable onPress={onSavePrice} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>
+                <Pressable onPress={onSavePrice} style={[styles.modalBtn, { backgroundColor: theme.primary }]}>
                   <Text style={{ color: '#fff' }}>Save</Text>
                 </Pressable>
               </View>
@@ -273,54 +263,53 @@ export default function BrazilStockScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  heading: { fontSize: 28, fontWeight: 'bold', margin: 16 },
-  subheader: { fontSize: 20, fontWeight: '600', marginHorizontal: 16, marginTop: 12 },
-  list: { paddingBottom: 16 },
+  container: { flex: 1, padding: 16 },
+  heading: { fontSize: 30, fontWeight: 'bold', marginBottom: 12 },
+  subheader: { fontSize: 22, fontWeight: '700', marginVertical: 8 },
+  list: { paddingBottom: 24 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    marginHorizontal: 16,
-    marginVertical: 6,
-    borderRadius: 10,
-    elevation: 2,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-  },
-  cardText: { flex: 1, fontSize: 16 },
-  badge: {
-    backgroundColor: '#eee',
+    padding: 16,
+    marginVertical: 8,
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginHorizontal: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  badgeText: { fontWeight: 'bold' },
-  cell: {
-    width: 60,
-    textAlign: 'center',
-    fontSize: 16,
-    marginHorizontal: 8,
-  },
+  icon: { marginRight: 12 },
+  cardText: { flex: 1, fontSize: 18, fontWeight: '600' },
+  badge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8 },
+  badgeText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  cell: { width: 70, textAlign: 'center', fontSize: 16, marginHorizontal: 8 },
   actions: { flexDirection: 'row', alignItems: 'center', marginLeft: 8 },
   smallInput: {
-    width: 50,
+    width: 60,
     borderWidth: 1,
     borderRadius: 6,
-    padding: 4,
+    padding: 6,
     marginRight: 8,
     textAlign: 'center',
   },
-  btn: { padding: 6, borderRadius: 6 },
+  actionBtn: { padding: 8, borderRadius: 6 },
   sectionFooter: {
-    marginHorizontal: 16,
-    marginTop: 8,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderColor: '#ccc',
+    marginVertical: 8,
   },
-  footerText: { fontSize: 16, fontWeight: '600', marginVertical: 2 },
+  footerContainer: {
+    padding: 16,
+    borderTopWidth: 1,
+    marginTop: 16,
+    borderRadius: 12,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  footerItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  footerText: { fontSize: 16, fontWeight: '600', marginLeft: 8 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -328,20 +317,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    width: '80%',
-    padding: 16,
-    borderRadius: 8,
-    elevation: 4,
+    width: '85%',
+    padding: 20,
+    borderRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  modalTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
+  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 8,
+    borderRadius: 8,
+    padding: 10,
     fontSize: 16,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end' },
-  modalBtn: { padding: 10, borderRadius: 6, marginLeft: 12 },
+  modalBtn: { padding: 12, borderRadius: 8, marginLeft: 12 },
 });

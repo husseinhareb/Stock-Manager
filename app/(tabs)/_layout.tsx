@@ -1,7 +1,7 @@
 // app/(tabs)/_layout.tsx
-import React from 'react';
-import { Tabs } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import React from 'react';
 
 export default function TabLayout() {
   return (
@@ -28,11 +28,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="cart"
+        name="client"
         options={{
-          title: 'Cart',
+          title: 'Client',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="shopping-cart" size={size} color={color} />
+            <FontAwesome name="user-circle" size={size} color={color} />
           ),
         }}
       />

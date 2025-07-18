@@ -1,31 +1,31 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  SafeAreaView,
-  StyleSheet,
-  Modal,
-  Pressable,
   Alert,
   FlatList,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
   ScrollView,
   StatusBar,
-  Platform,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { useFocusEffect } from '@react-navigation/native';
 
-import {
-  fetchClients,
-  addClient,
-  fetchSavedCarts,
-  fetchCartItems,
-} from '../../src/db';
-import type { ClientPin, SavedCartSummary } from '../../src/db';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import type { ClientPin, SavedClientSummary } from '../../src/db';
+import {
+  addClient,
+  fetchClientItems,
+  fetchClients,
+  fetchSavedClients,
+} from '../../src/db';
 
-interface CartItem {
+interface ClientItem {
   id: number;
   name: string;
   quantity: number;
@@ -37,23 +37,23 @@ export default function MapScreen() {
   const theme = Colors[scheme ?? 'light'];
 
   const [clients, setClients] = useState<ClientPin[]>([]);
-  const [savedCarts, setSavedCarts] = useState<SavedCartSummary[]>([]);
+  const [savedClients, setSavedClients] = useState<SavedClientSummary[]>([]);
   const [newPinCoord, setNewPinCoord] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectModalVisible, setSelectModalVisible] = useState(false);
   const [detailModal, setDetailModal] = useState<{
     client: string;
     total: number;
-    items: CartItem[];
+    items: ClientItem[];
   } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
-      const [cls, carts] = await Promise.all([
+      const [cls, clients] = await Promise.all([
         fetchClients(),
-        fetchSavedCarts(),
+        fetchSavedClients(),
       ]);
       setClients(Array.isArray(cls) ? cls : []);
-      setSavedCarts(Array.isArray(carts) ? carts : []);
+      setSavedClients(Array.isArray(clients) ? clients : []);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert('Load failed', msg);
@@ -68,10 +68,10 @@ export default function MapScreen() {
     setSelectModalVisible(true);
   };
 
-  const handleSelectCart = async (cart: SavedCartSummary) => {
+  const handleSelectClient = async (client: SavedClientSummary) => {
     if (!newPinCoord) return;
     try {
-      await addClient(cart.client, newPinCoord.latitude, newPinCoord.longitude);
+      await addClient(client.client, newPinCoord.latitude, newPinCoord.longitude);
       setSelectModalVisible(false);
       setNewPinCoord(null);
       await loadData();
@@ -81,17 +81,17 @@ export default function MapScreen() {
     }
   };
 
-  const handleViewCart = async (clientName: string) => {
-    const cart = savedCarts.find(c => c.client === clientName);
-    if (!cart) {
-      Alert.alert('Cart not found for', clientName);
+  const handleViewClient = async (clientName: string) => {
+    const client = savedClients.find(c => c.client === clientName);
+    if (!client) {
+      Alert.alert('Client not found for', clientName);
       return;
     }
     try {
-      const lines = await fetchCartItems(cart.id);
+      const lines = await fetchClientItems(client.id);
       setDetailModal({
-        client: cart.client,
-        total: cart.total,
+        client: client.client,
+        total: client.total,
         items: lines.map(l => ({
           id: l.article_id,
           name: l.name,
@@ -101,7 +101,7 @@ export default function MapScreen() {
       });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert('Error loading cart', msg);
+      Alert.alert('Error loading client', msg);
     }
   };
 
@@ -131,22 +131,22 @@ export default function MapScreen() {
             coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
             pinColor={theme.accent}
             title={pin.name}
-            description="Tap to view cart"
-            onCalloutPress={() => handleViewCart(pin.name)}
+            description="Tap to view client"
+            onCalloutPress={() => handleViewClient(pin.name)}
           />
         ))}
       </MapView>
 
-      {/* Select Cart Modal */}
+      {/* Select Client Modal */}
       <Modal visible={selectModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>  
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>Select Cart to Pin</Text>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>Select Client to Pin</Text>
             <FlatList
-              data={savedCarts}
+              data={savedClients}
               keyExtractor={c => String(c.id)}
               renderItem={({ item }) => (
-                <Pressable style={styles.modalItem} onPress={() => handleSelectCart(item)}>
+                <Pressable style={styles.modalItem} onPress={() => handleSelectClient(item)}>
                   <Text style={[styles.modalItemText, { color: theme.text }]}>                  
                     {`${item.client} ($${item.total.toFixed(2)})`}
                   </Text>
@@ -160,7 +160,7 @@ export default function MapScreen() {
         </View>
       </Modal>
 
-      {/* Cart Detail Modal */}
+      {/* Client Detail Modal */}
       <Modal visible={!!detailModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>  

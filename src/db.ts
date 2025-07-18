@@ -1,6 +1,6 @@
 // app/lib/db.ts
-import * as SQLite from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
+import * as SQLite from 'expo-sqlite';
 
 let _dbPromise: Promise<SQLiteDatabase> | null = null;
 
@@ -37,9 +37,9 @@ async function getDB(): Promise<SQLiteDatabase> {
         );
       `);
 
-      // ----- In‑Memory Cart (legacy) -----
+      // ----- In‑Memory Client (legacy) -----
       await db.execAsync(`
-        CREATE TABLE IF NOT EXISTS cart (
+        CREATE TABLE IF NOT EXISTS client (
           article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
           quantity   INTEGER NOT NULL
         );
@@ -55,21 +55,21 @@ async function getDB(): Promise<SQLiteDatabase> {
         );
       `);
 
-      // ----- Saved Carts Persistence -----
+      // ----- Saved Clients Persistence -----
       await db.execAsync(`
-        CREATE TABLE IF NOT EXISTS saved_carts (
+        CREATE TABLE IF NOT EXISTS saved_clients (
           id          INTEGER PRIMARY KEY AUTOINCREMENT,
           client      TEXT    NOT NULL,
           created_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
         );
       `);
       await db.execAsync(`
-        CREATE TABLE IF NOT EXISTS saved_cart_items (
-          cart_id     INTEGER NOT NULL REFERENCES saved_carts(id) ON DELETE CASCADE,
+        CREATE TABLE IF NOT EXISTS saved_client_items (
+          client_id     INTEGER NOT NULL REFERENCES saved_clients(id) ON DELETE CASCADE,
           article_id  INTEGER NOT NULL REFERENCES main_stock(id),
           quantity    INTEGER NOT NULL,
           price       REAL    NOT NULL,
-          PRIMARY KEY (cart_id, article_id)
+          PRIMARY KEY (client_id, article_id)
         );
       `);
 
@@ -85,10 +85,10 @@ async function getDB(): Promise<SQLiteDatabase> {
 /** Types used throughout the app */
 export type Article           = { id: number; name: string; quantity: number };
 export type Price             = { article_id: number; price: number };
-export type CartItem          = { article_id: number; quantity: number; name: string; price: number };
+export type ClientItem          = { article_id: number; quantity: number; name: string; price: number };
 export type ClientPin         = { id: number; name: string; latitude: number; longitude: number };
-export type SavedCartSummary  = { id: number; client: string; created_at: number; total: number };
-export type SavedCartItem     = { article_id: number; name: string; quantity: number; price: number };
+export type SavedClientSummary  = { id: number; client: string; created_at: number; total: number };
+export type SavedClientItem     = { article_id: number; name: string; quantity: number; price: number };
 
 /** Ensure DB is open and initialized */
 export async function initDB(): Promise<void> {
@@ -314,29 +314,29 @@ export async function setPrice(article_id: number, price: number): Promise<void>
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// In‑Memory Cart API (legacy)
+// In‑Memory Client API (legacy)
 ////////////////////////////////////////////////////////////////////////////////
 
-export async function fetchCart(): Promise<CartItem[]> {
+export async function fetchClient(): Promise<ClientItem[]> {
   const db = await getDB();
-  return db.getAllAsync<CartItem>(
+  return db.getAllAsync<ClientItem>(
     `
     SELECT
       c.article_id,
       c.quantity,
       m.name,
       IFNULL(p.price,0) AS price
-    FROM cart c
+    FROM client c
     JOIN main_stock m ON m.id=c.article_id
     LEFT JOIN prices p ON p.article_id=c.article_id;
     `
   );
 }
 
-export async function addToCart(article_id: number, quantity: number): Promise<void> {
+export async function addToClient(article_id: number, quantity: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(
-    `INSERT INTO cart (article_id, quantity)
+    `INSERT INTO client (article_id, quantity)
        VALUES (?,?)
      ON CONFLICT(article_id) DO UPDATE
        SET quantity=excluded.quantity;`,
@@ -345,17 +345,17 @@ export async function addToCart(article_id: number, quantity: number): Promise<v
   );
 }
 
-export async function clearCart(): Promise<void> {
+export async function clearClient(): Promise<void> {
   const db = await getDB();
-  await db.execAsync(`DELETE FROM cart;`);
+  await db.execAsync(`DELETE FROM client;`);
 }
 
-export async function fetchCartTotal(): Promise<number> {
+export async function fetchClientTotal(): Promise<number> {
   const db = await getDB();
   const row = await db.getFirstAsync<{ total: number }>(
     `
     SELECT SUM(c.quantity * IFNULL(p.price,0)) AS total
-    FROM cart c
+    FROM client c
     LEFT JOIN prices p ON p.article_id=c.article_id;
     `
   );
@@ -363,10 +363,10 @@ export async function fetchCartTotal(): Promise<number> {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Persisted Cart API
+// Persisted Client API
 ////////////////////////////////////////////////////////////////////////////////
 
-export async function saveCart(
+export async function saveClient(
   client: string,
   items: { article_id: number; quantity: number; price: number }[]
 ): Promise<void> {
@@ -374,20 +374,20 @@ export async function saveCart(
   await db.execAsync(`BEGIN TRANSACTION;`);
   try {
     await db.runAsync(
-      `INSERT INTO saved_carts (client) VALUES (?);`,
+      `INSERT INTO saved_clients (client) VALUES (?);`,
       client
     );
     const row = await db.getFirstAsync<{ id: number }>(
       `SELECT last_insert_rowid() AS id;`
     );
-    if (!row) throw new Error('Failed to retrieve new cart ID');
-    const cartId = row.id;
+    if (!row) throw new Error('Failed to retrieve new client ID');
+    const clientId = row.id;
 
     for (const it of items) {
       await db.runAsync(
-        `INSERT INTO saved_cart_items (cart_id, article_id, quantity, price)
+        `INSERT INTO saved_client_items (client_id, article_id, quantity, price)
            VALUES (?, ?, ?, ?);`,
-        cartId,
+        clientId,
         it.article_id,
         it.quantity,
         it.price
@@ -401,37 +401,37 @@ export async function saveCart(
   }
 }
 
-export async function fetchSavedCarts(): Promise<SavedCartSummary[]> {
+export async function fetchSavedClients(): Promise<SavedClientSummary[]> {
   const db = await getDB();
-  return db.getAllAsync<SavedCartSummary>(
+  return db.getAllAsync<SavedClientSummary>(
     `
     SELECT
       sc.id,
       sc.client,
       sc.created_at,
       IFNULL(SUM(sci.quantity * sci.price),0) AS total
-    FROM saved_carts sc
-    LEFT JOIN saved_cart_items sci ON sci.cart_id=sc.id
+    FROM saved_clients sc
+    LEFT JOIN saved_client_items sci ON sci.client_id=sc.id
     GROUP BY sc.id
     ORDER BY sc.created_at DESC;
     `
   );
 }
 
-export async function fetchCartItems(cartId: number): Promise<SavedCartItem[]> {
+export async function fetchClientItems(clientId: number): Promise<SavedClientItem[]> {
   const db = await getDB();
-  return db.getAllAsync<SavedCartItem>(
+  return db.getAllAsync<SavedClientItem>(
     `
     SELECT
       sci.article_id,
       m.name,
       sci.quantity,
       sci.price
-    FROM saved_cart_items sci
+    FROM saved_client_items sci
     JOIN main_stock m ON m.id = sci.article_id
-    WHERE sci.cart_id = ?;
+    WHERE sci.client_id = ?;
     `,
-    cartId
+    clientId
   );
 }
 
