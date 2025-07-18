@@ -6,17 +6,21 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 
 export default function RootLayout() {
-  const theme = Colors[useColorScheme() ?? 'light'];
+  const scheme = useColorScheme();
+  const theme = Colors[scheme ?? 'light'];
 
   return (
     <Drawer
       initialRouteName="(tabs)"
       screenOptions={{
-        headerShown: true,                // show header so the hamburger appears
-        headerTitleAlign: 'center',
-        drawerStyle: { width: 240 },
-        drawerActiveTintColor: theme.primary,
+        headerShown: true,                 // show header for hamburger
+        headerStyle: { backgroundColor: theme.primary },
+        headerTintColor: '#fff',           // icon/text in header
+        headerTitleStyle: { fontWeight: 'bold' },
+        drawerStyle: { backgroundColor: theme.card },
+        drawerActiveTintColor: theme.accent,
         drawerInactiveTintColor: theme.text,
+        drawerLabelStyle: { fontSize: 16 },
       }}
     >
       <Drawer.Screen
@@ -28,7 +32,6 @@ export default function RootLayout() {
           ),
         }}
       />
-      {/* You can add more drawer screens here */}
       <Drawer.Screen
         name="settings"
         options={{

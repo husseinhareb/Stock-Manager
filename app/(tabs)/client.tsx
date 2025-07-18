@@ -194,18 +194,12 @@ export default function ClientScreen() {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Header */}
-        <View style={[styles.header, { backgroundColor: theme.primary }]}>
-          <FontAwesome name="users" size={28} color="#fff" />
-          <Text style={styles.headerText}>Clients</Text>
-          <TouchableOpacity
-            onPress={() => setClientModalVisible(true)}
-            style={[styles.addBtn, { backgroundColor: theme.accent }]}
-          >
-            <FontAwesome name="plus" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
+        <TouchableOpacity
+          onPress={() => setClientModalVisible(true)}
+          style={[styles.addBtn, { backgroundColor: theme.accent }]}
+        >
+          <FontAwesome name="plus" size={20} color="#fff" />
+        </TouchableOpacity>
         {isBuilding ? (
           <>
             {/* Builder */}

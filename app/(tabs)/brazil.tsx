@@ -189,11 +189,6 @@ export default function BrazilStockScreen() {
         style={styles.container}
         behavior={Platform.select({ ios: 'padding' })}
       >
-        {/* Header */}
-        <View style={[styles.header, { backgroundColor: theme.primary }]}>
-          <Text style={styles.headerText}>Stock Dashboard</Text>
-        </View>
-
         {/* China Stock */}
         <View style={[styles.sectionContainer, { backgroundColor: theme.card }]}>
           <Text style={[styles.sectionTitle, { color: theme.primary }]}>China Stock</Text>

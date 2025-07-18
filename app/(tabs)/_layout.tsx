@@ -1,19 +1,32 @@
 // app/(tabs)/_layout.tsx
+import React from 'react';
 import { FontAwesome } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import React from 'react';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@/constants/Colors';
 
 export default function TabLayout() {
+  const scheme = useColorScheme();
+  const theme = Colors[scheme ?? 'light'];
+
   return (
     <Tabs
       initialRouteName="china"
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: true,
+        headerStyle: { backgroundColor: theme.primary },
+        headerTintColor: '#fff',
+        headerTitleStyle: { fontWeight: 'bold' },
+        tabBarStyle: { backgroundColor: theme.card },
+        tabBarActiveTintColor: theme.accent,
+        tabBarInactiveTintColor: theme.text,
+      }}
     >
       <Tabs.Screen
         name="china"
         options={{
           title: 'China',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <FontAwesome name="archive" size={size} color={color} />
           ),
         }}
@@ -22,7 +35,7 @@ export default function TabLayout() {
         name="brazil"
         options={{
           title: 'Brazil',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <FontAwesome name="cubes" size={size} color={color} />
           ),
         }}
@@ -31,7 +44,7 @@ export default function TabLayout() {
         name="client"
         options={{
           title: 'Client',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <FontAwesome name="user-circle" size={size} color={color} />
           ),
         }}
@@ -40,7 +53,7 @@ export default function TabLayout() {
         name="map"
         options={{
           title: 'Map',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <FontAwesome name="map" size={size} color={color} />
           ),
         }}
