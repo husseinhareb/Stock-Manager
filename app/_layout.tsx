@@ -1,29 +1,43 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
+// app/_layout.tsx
+import React from 'react';
+import { FontAwesome } from '@expo/vector-icons';
+import { Drawer } from 'expo-router/drawer';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@/constants/Colors';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
-  }
+  const theme = Colors[useColorScheme() ?? 'light'];
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Drawer
+      initialRouteName="(tabs)"
+      screenOptions={{
+        headerShown: true,                // show header so the hamburger appears
+        headerTitleAlign: 'center',
+        drawerStyle: { width: 240 },
+        drawerActiveTintColor: theme.primary,
+        drawerInactiveTintColor: theme.text,
+      }}
+    >
+      <Drawer.Screen
+        name="(tabs)"
+        options={{
+          title: 'Home',
+          drawerIcon: ({ color, size }) => (
+            <FontAwesome name="home" size={size} color={color} />
+          ),
+        }}
+      />
+      {/* You can add more drawer screens here */}
+      <Drawer.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          drawerIcon: ({ color, size }) => (
+            <FontAwesome name="cog" size={size} color={color} />
+          ),
+        }}
+      />
+    </Drawer>
   );
 }

@@ -6,12 +6,11 @@ import {
   StyleSheet,
   TextInput,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   Alert,
   KeyboardAvoidingView,
   Platform,
   Modal,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
@@ -36,10 +35,8 @@ export default function BrazilStockScreen() {
   const [mainStock, setMainStock] = useState<Article[]>([]);
   const [brazilStock, setBrazilStock] = useState<Article[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
-
   const [moveQty, setMoveQty] = useState<Record<number, string>>({});
   const [returnQty, setReturnQty] = useState<Record<number, string>>({});
-
   const [priceModalVisible, setPriceModalVisible] = useState(false);
   const [priceModalArticle, setPriceModalArticle] = useState<Article | null>(null);
   const [priceInput, setPriceInput] = useState('');
@@ -59,13 +56,8 @@ export default function BrazilStockScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useFocusEffect(useCallback(() => {
-    loadData();
-  }, [loadData]));
+  useEffect(() => { loadData(); }, [loadData]);
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const priceMap = useMemo(() => {
     const m: Record<number, number> = {};
@@ -73,14 +65,8 @@ export default function BrazilStockScreen() {
     return m;
   }, [prices]);
 
-  const mainTotalQty = useMemo(
-    () => mainStock.reduce((s, a) => s + a.quantity, 0),
-    [mainStock]
-  );
-  const brazilTotalQty = useMemo(
-    () => brazilStock.reduce((s, a) => s + a.quantity, 0),
-    [brazilStock]
-  );
+  const mainTotalQty = useMemo(() => mainStock.reduce((s, a) => s + a.quantity, 0), [mainStock]);
+  const brazilTotalQty = useMemo(() => brazilStock.reduce((s, a) => s + a.quantity, 0), [brazilStock]);
   const brazilTotalVal = useMemo(
     () => brazilStock.reduce((s, a) => s + a.quantity * (priceMap[a.id] || 0), 0),
     [brazilStock, priceMap]
@@ -88,10 +74,10 @@ export default function BrazilStockScreen() {
 
   const onMove = async (item: Article) => {
     const q = parseInt(moveQty[item.id] || '0', 10);
-    if (q <= 0) return Alert.alert('Enter a positive quantity to move');
+    if (q <= 0) return Alert.alert('Please enter a positive quantity to move');
     try {
       await moveToSecondary(item.id, q);
-      setMoveQty(m => ({ ...m, [item.id]: '' }));
+      setMoveQty(prev => ({ ...prev, [item.id]: '' }));
       setPriceModalArticle(item);
       setPriceInput('');
       setPriceModalVisible(true);
@@ -102,10 +88,10 @@ export default function BrazilStockScreen() {
 
   const onReturn = async (item: Article) => {
     const q = parseInt(returnQty[item.id] || '0', 10);
-    if (q <= 0) return Alert.alert('Enter a positive quantity to return');
+    if (q <= 0) return Alert.alert('Please enter a positive quantity to return');
     try {
       await returnToMain(item.id, q);
-      setReturnQty(m => ({ ...m, [item.id]: '' }));
+      setReturnQty(prev => ({ ...prev, [item.id]: '' }));
       await loadData();
     } catch (e: any) {
       Alert.alert('Return failed', e.message);
@@ -126,37 +112,50 @@ export default function BrazilStockScreen() {
   };
 
   const renderMoveItem = ({ item }: { item: Article }) => (
-    <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: theme.card, shadowColor: theme.shadow },
+        pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+      ]}
+    >
+      <FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
       <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>
         {item.name}
       </Text>
       <View style={[styles.badge, { backgroundColor: theme.accent }]}>
         <Text style={styles.badgeText}>{item.quantity}</Text>
       </View>
-      <View style={styles.actions}>
-        <TextInput
-          style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
-          placeholder="Qty"
-          placeholderTextColor={theme.placeholder}
-          keyboardType="numeric"
-          value={moveQty[item.id]}
-          onChangeText={t => setMoveQty(m => ({ ...m, [item.id]: t }))}
-        />
-        <TouchableOpacity
-          onPress={() => onMove(item)}
-          style={[styles.actionBtn, { backgroundColor: theme.primary }]}
-        >
-          <FontAwesome name="arrow-right" size={16} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    </View>
+      <TextInput
+        style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
+        placeholder="Qty"
+        placeholderTextColor={theme.placeholder}
+        keyboardType="numeric"
+        value={moveQty[item.id]}
+        onChangeText={t => setMoveQty(m => ({ ...m, [item.id]: t }))}
+      />
+      <Pressable
+        onPress={() => onMove(item)}
+        style={[styles.solidBtn, { backgroundColor: theme.primary }]}
+        hitSlop={8}
+      >
+        <FontAwesome name="arrow-right" size={16} color="#fff" />
+      </Pressable>
+    </Pressable>
   );
 
   const renderViewItem = ({ item }: { item: Article }) => {
     const unit = priceMap[item.id] || 0;
     const total = (unit * item.quantity).toFixed(2);
     return (
-      <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.card,
+          { backgroundColor: theme.card, shadowColor: theme.shadow },
+          pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+        ]}
+      >
+        <FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
         <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>
           {item.name}
         </Text>
@@ -165,23 +164,22 @@ export default function BrazilStockScreen() {
         </View>
         <Text style={[styles.cell, { color: theme.text }]}>{`$${unit.toFixed(2)}`}</Text>
         <Text style={[styles.cell, { color: theme.text }]}>{`$${total}`}</Text>
-        <View style={styles.actions}>
-          <TextInput
-            style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
-            placeholder="Ret"
-            placeholderTextColor={theme.placeholder}
-            keyboardType="numeric"
-            value={returnQty[item.id]}
-            onChangeText={t => setReturnQty(m => ({ ...m, [item.id]: t }))}
-          />
-          <TouchableOpacity
-            onPress={() => onReturn(item)}
-            style={[styles.actionBtn, { backgroundColor: '#FF3B30' }]}
-          >
-            <FontAwesome name="arrow-left" size={16} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </View>
+        <TextInput
+          style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
+          placeholder="Ret"
+          placeholderTextColor={theme.placeholder}
+          keyboardType="numeric"
+          value={returnQty[item.id]}
+          onChangeText={t => setReturnQty(m => ({ ...m, [item.id]: t }))}
+        />
+        <Pressable
+          onPress={() => onReturn(item)}
+          style={[styles.solidBtn, { backgroundColor: '#FF5F6D' }]}
+          hitSlop={8}
+        >
+          <FontAwesome name="arrow-left" size={16} color="#fff" />
+        </Pressable>
+      </Pressable>
     );
   };
 
@@ -191,61 +189,62 @@ export default function BrazilStockScreen() {
         style={styles.container}
         behavior={Platform.select({ ios: 'padding' })}
       >
-        <Text style={[styles.heading, { color: theme.primary }]}>Stocks</Text>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: theme.primary }]}>
+          <Text style={styles.headerText}>Stock Dashboard</Text>
+        </View>
 
-        {/* ─── China Stock Panel ─────────────────────────── */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.subheader, { color: theme.primary }]}>China Stock</Text>
+        {/* China Stock */}
+        <View style={[styles.sectionContainer, { backgroundColor: theme.card }]}>
+          <Text style={[styles.sectionTitle, { color: theme.primary }]}>China Stock</Text>
           <FlatList
             data={mainStock.filter(a => a.quantity > 0)}
-            keyExtractor={item => item.id.toString()}
+            keyExtractor={i => i.id.toString()}
             renderItem={renderMoveItem}
             style={styles.listScroll}
-            contentContainerStyle={{ paddingBottom: 8 }}
+            showsVerticalScrollIndicator={false}
           />
-          <View style={styles.sectionFooter}>
-            <FontAwesome name="cubes" size={18} color={theme.primary} />
-            <Text style={[styles.footerText, { color: theme.text, marginLeft: 6 }]}>
-              Total: {mainTotalQty}
+          <View style={[styles.footerBar, { borderTopColor: theme.border }]}>
+            <FontAwesome name="cubes" size={18} color={theme.accent} />
+            <Text style={[styles.footerText, { color: theme.text }]}>
+              {mainTotalQty} items
             </Text>
           </View>
         </View>
 
-        {/* ─── Brazil Stock Panel ────────────────────────── */}
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.subheader, { color: theme.primary }]}>Brazil Stock</Text>
+        {/* Brazil Stock */}
+        <View style={[styles.sectionContainer, { backgroundColor: theme.card }]}>
+        <Text style={[styles.heading, { color: theme.primary }]}>China Stock</Text>    
           <FlatList
             data={brazilStock.filter(a => a.quantity > 0)}
-            keyExtractor={item => item.id.toString()}
+            keyExtractor={i => i.id.toString()}
             renderItem={renderViewItem}
             style={styles.listScroll}
-            contentContainerStyle={{ paddingBottom: 8 }}
+            showsVerticalScrollIndicator={false}
           />
-          <View style={styles.sectionFooter}>
-            <FontAwesome name="cubes" size={18} color={theme.primary} />
-            <Text style={[styles.footerText, { color: theme.text, marginLeft: 6 }]}>
-              Total Qty: {brazilTotalQty}
+          <View style={[styles.footerBar, { borderTopColor: theme.border }]}>
+            <FontAwesome name="cubes" size={18} color={theme.accent} />
+            <Text style={[styles.footerText, { color: theme.text }]}>
+              {brazilTotalQty} pcs
             </Text>
             <FontAwesome
               name="dollar"
               size={18}
-              color={theme.primary}
-              style={{ marginLeft: 16 }}
+              color={theme.accent}
+              style={{ marginLeft: 20 }}
             />
-            <Text style={[styles.footerText, { color: theme.text, marginLeft: 6 }]}>
-              Value: ${brazilTotalVal.toFixed(2)}
+            <Text style={[styles.footerText, { color: theme.text }]}>
+              ${brazilTotalVal.toFixed(2)}
             </Text>
           </View>
         </View>
 
-        {/* ─── Price Modal ───────────────────────────────── */}
-        <Modal visible={priceModalVisible} transparent animationType="fade">
+        {/* Price Modal */}
+        <Modal visible={priceModalVisible} transparent animationType="slide">
           <View style={styles.modalOverlay}>
-            <View
-              style={[styles.modalContent, { backgroundColor: theme.card, shadowColor: theme.shadow }]}
-            >
+            <View style={[styles.modalContent, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
               <Text style={[styles.modalTitle, { color: theme.primary }]}>
-                Set price for “{priceModalArticle?.name}”
+                Set Price for “{priceModalArticle?.name}”
               </Text>
               <TextInput
                 style={[styles.modalInput, { borderColor: theme.border, color: theme.text }]}
@@ -258,13 +257,13 @@ export default function BrazilStockScreen() {
               />
               <View style={styles.modalActions}>
                 <Pressable onPress={() => setPriceModalVisible(false)} style={styles.modalBtn}>
-                  <Text style={{ color: theme.text }}>Cancel</Text>
+                  <Text style={{ color: theme.text, fontWeight: '600' }}>Cancel</Text>
                 </Pressable>
                 <Pressable
                   onPress={onSavePrice}
                   style={[styles.modalBtn, { backgroundColor: theme.primary }]}
                 >
-                  <Text style={{ color: '#fff' }}>Save</Text>
+                  <Text style={{ color: '#fff', fontWeight: '600' }}>Save</Text>
                 </Pressable>
               </View>
             </View>
@@ -276,69 +275,101 @@ export default function BrazilStockScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12 },
-  heading: { fontSize: 28, fontWeight: 'bold', marginBottom: 12 },
+  container: { flex: 1 },
+  heading: { fontSize: 28, fontWeight: 'bold', margin: 16 },
+
+  header: { fontSize: 28, fontWeight: 'bold', marginBottom: 12 },
+  headerText: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+
   sectionContainer: {
     flex: 1,
-    borderRadius: 10,
+    margin: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 12,
+    elevation: 3,
   },
-  subheader: { fontSize: 20, fontWeight: '600', padding: 8 },
-  listScroll: { flex: 1, paddingHorizontal: 8 },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    padding: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    letterSpacing: 0.5,
+  },
+  listScroll: { flex: 1, paddingHorizontal: 12 },
+
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    marginVertical: 4,
-    borderRadius: 8,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    marginVertical: 6,
+    marginHorizontal: 4,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  cardText: { flex: 1, fontSize: 16, fontWeight: '500' },
-  badge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6 },
+  icon: { marginRight: 10 },
+  cardText: { flex: 1, fontSize: 16, fontWeight: '600' },
+  badge: { padding: 6, borderRadius: 8 },
   badgeText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  cell: { width: 60, textAlign: 'center', fontSize: 16, marginHorizontal: 6 },
-  actions: { flexDirection: 'row', alignItems: 'center', marginLeft: 8 },
+  cell: { width: 60, textAlign: 'center', fontSize: 16 },
   smallInput: {
     width: 50,
     borderWidth: 1,
-    borderRadius: 6,
-    padding: 4,
-    marginRight: 6,
+    borderRadius: 8,
+    padding: 6,
+    marginHorizontal: 8,
     textAlign: 'center',
   },
-  actionBtn: { padding: 6, borderRadius: 6 },
-  sectionFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderTopWidth: 1,
-  },
-  footerText: { fontSize: 16, fontWeight: '600' },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  solidBtn: {
+    padding: 8,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContent: {
-    width: '80%',
-    padding: 16,
-    borderRadius: 8,
-    elevation: 4,
+
+  footerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderTopWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  modalTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
+  footerText: { fontSize: 16, fontWeight: '700', marginLeft: 8 },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    padding: 16,
+  },
+  modalContent: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 20,
+    elevation: 6,
+  },
+  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
   modalInput: {
     borderWidth: 1,
-    borderRadius: 6,
-    padding: 8,
+    borderRadius: 10,
+    padding: 12,
     fontSize: 16,
-    marginBottom: 16,
+    marginBottom: 20,
+    backgroundColor: '#FFF',
   },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end' },
-  modalBtn: { padding: 10, borderRadius: 6, marginLeft: 8 },
+  modalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginLeft: 12,
+  },
 });
