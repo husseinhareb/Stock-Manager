@@ -13,7 +13,7 @@ export default function TabLayout() {
     <Tabs
       initialRouteName="china"
       screenOptions={{
-        headerShown: true,
+        headerShown: false,
         headerStyle: { backgroundColor: theme.primary },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: 'bold' },

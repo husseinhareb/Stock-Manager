@@ -4,18 +4,20 @@ import { FontAwesome } from '@expo/vector-icons';
 import { Drawer } from 'expo-router/drawer';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import { I18nProvider } from '@/app/i18n/I18nProvider';
 
 export default function RootLayout() {
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
 
   return (
+    <I18nProvider>
     <Drawer
       initialRouteName="(tabs)"
       screenOptions={{
-        headerShown: true,                 // show header for hamburger
+        headerShown: true,                
         headerStyle: { backgroundColor: theme.primary },
-        headerTintColor: '#fff',           // icon/text in header
+        headerTintColor: '#fff',           
         headerTitleStyle: { fontWeight: 'bold' },
         drawerStyle: { backgroundColor: theme.card },
         drawerActiveTintColor: theme.accent,
@@ -42,5 +44,6 @@ export default function RootLayout() {
         }}
       />
     </Drawer>
+    </I18nProvider>
   );
 }
