@@ -1,3 +1,4 @@
+// app/lib/db.ts
 import * as SQLite from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
@@ -73,15 +74,11 @@ async function getDB(): Promise<SQLiteDatabase> {
       `);
 
       return db;
-    })();
-
-    // If initialization fails, reset _dbPromise so future calls can retry
-    _dbPromise = _dbPromise.catch(err => {
+    })().catch(err => {
       _dbPromise = null;
       throw err;
     });
   }
-
   return _dbPromise;
 }
 
@@ -163,11 +160,15 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
   const db = await getDB();
   await db.execAsync(`SAVEPOINT sp_move;`);
   try {
-    const main = await db.getFirstAsync<{ quantity: number }>(
-      `SELECT quantity FROM main_stock WHERE id = ?;`,
+    // fetch both quantity and name before any deletion
+    const main = await db.getFirstAsync<{ quantity: number; name: string }>(
+      `SELECT quantity, name FROM main_stock WHERE id = ?;`,
       id
     );
-    if (!main || main.quantity < qty) throw new Error('Insufficient China stock');
+    if (!main || main.quantity < qty) {
+      throw new Error('Insufficient China stock');
+    }
+    const { name } = main;
 
     // 1) subtract from main_stock
     await db.runAsync(
@@ -175,8 +176,13 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
       qty,
       id
     );
+    // 2) delete the main_stock row if now zero
+    await db.runAsync(
+      `DELETE FROM main_stock WHERE id = ? AND quantity <= 0;`,
+      id
+    );
 
-    // 2) upsert into secondary_stock
+    // 3) upsert into secondary_stock using the cached name
     const sec = await db.getFirstAsync<{ quantity: number }>(
       `SELECT quantity FROM secondary_stock WHERE id = ?;`,
       id
@@ -190,16 +196,15 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
     } else {
       await db.runAsync(
         `INSERT INTO secondary_stock (id, name, quantity)
-           VALUES (?, (SELECT name FROM main_stock WHERE id = ?), ?);`,
+           VALUES (?, ?, ?);`,
         id,
-        id,
+        name,
         qty
       );
     }
-
-    // 3) **delete** any main_stock row now at zero
+    // 4) delete the secondary_stock row if now zero
     await db.runAsync(
-      `DELETE FROM main_stock WHERE id = ? AND quantity = 0;`,
+      `DELETE FROM secondary_stock WHERE id = ? AND quantity <= 0;`,
       id
     );
 
@@ -220,16 +225,13 @@ export async function sellSecondary(id: number, qty: number): Promise<void> {
     );
     if (!sec || sec.quantity < qty) throw new Error('Insufficient Brazil stock');
 
-    // subtract from secondary_stock
     await db.runAsync(
       `UPDATE secondary_stock SET quantity = quantity - ? WHERE id = ?;`,
       qty,
       id
     );
-
-    // **delete** any secondary_stock row now at zero
     await db.runAsync(
-      `DELETE FROM secondary_stock WHERE id = ? AND quantity = 0;`,
+      `DELETE FROM secondary_stock WHERE id = ? AND quantity <= 0;`,
       id
     );
 
@@ -240,38 +242,55 @@ export async function sellSecondary(id: number, qty: number): Promise<void> {
   }
 }
 
-
 export async function returnToMain(id: number, qty: number): Promise<void> {
   const db = await getDB();
-  await db.execAsync(`SAVEPOINT sp_return;`);
+  await db.execAsync(`BEGIN TRANSACTION;`);
   try {
-    const sec = await db.getFirstAsync<{ quantity: number }>(
-      `SELECT quantity FROM secondary_stock WHERE id = ?;`,
+    // 1) grab both quantity & name from Brazil stock
+    const sec = await db.getFirstAsync<{ quantity: number; name: string }>(
+      `SELECT quantity, name FROM secondary_stock WHERE id = ?;`,
       id
     );
-    if (!sec || sec.quantity < qty) throw new Error('Insufficient Brazil stock to return');
+    if (!sec || sec.quantity < qty) {
+      throw new Error('Insufficient Brazil stock to return');
+    }
+    const { name } = sec;
 
+    // 2) subtract from secondary_stock
     await db.runAsync(
-      `UPDATE secondary_stock SET quantity = quantity - ? WHERE id = ?;`,
-      qty,
-      id
-    );
-    await db.runAsync(
-      `DELETE FROM secondary_stock WHERE id = ? AND quantity = 0;`,
-      id
-    );
-    await db.runAsync(
-      `UPDATE main_stock SET quantity = quantity + ? WHERE id = ?;`,
+      `UPDATE secondary_stock 
+         SET quantity = quantity - ? 
+       WHERE id = ?;`,
       qty,
       id
     );
 
-    await db.execAsync(`RELEASE SAVEPOINT sp_return;`);
+    // 3) delete the Brazil row if it hit zero
+    await db.runAsync(
+      `DELETE FROM secondary_stock 
+        WHERE id = ? 
+          AND quantity <= 0;`,
+      id
+    );
+
+    // 4) **upsert** back into main_stock (China)
+    await db.runAsync(
+      `INSERT INTO main_stock (id, name, quantity)
+         VALUES (?, ?, ?)
+       ON CONFLICT(id) DO UPDATE
+         SET quantity = main_stock.quantity + excluded.quantity;`,
+      id,
+      name,
+      qty
+    );
+
+    await db.execAsync(`COMMIT;`);
   } catch (e) {
-    await db.execAsync(`ROLLBACK TO SAVEPOINT sp_return;`);
+    await db.execAsync(`ROLLBACK;`);
     throw e;
   }
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Pricing API
@@ -344,7 +363,7 @@ export async function fetchCartTotal(): Promise<number> {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Persisted Cart API (fixed)
+// Persisted Cart API
 ////////////////////////////////////////////////////////////////////////////////
 
 export async function saveCart(
