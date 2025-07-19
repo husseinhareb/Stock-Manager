@@ -1,12 +1,12 @@
 // app/_layout.tsx
-import React from 'react';
-import '@/i18n';                             // initialize i18n
-import i18n from 'app/i18n';
-import { I18nextProvider, useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import '../i18n'; // initialize i18n
+import i18n from '../i18n';
 import { FontAwesome } from '@expo/vector-icons';
 import { Drawer } from 'expo-router/drawer';
+import React from 'react';
+import { I18nextProvider, useTranslation } from 'react-i18next';
 
 export default function RootLayout() {
   const { t } = useTranslation();

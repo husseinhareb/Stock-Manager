@@ -1,11 +1,11 @@
 // app/i18n.ts
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import * as RNLocalize from 'react-native-localize';
-import en from './locales/en.json';
-import es from './locales/es.json';
+import * as Localization from 'expo-localization';
+import en from './app/locales/en.json';
+import es from './app/locales/es.json';
 
-const locales = RNLocalize.getLocales();
+const locales = Localization.getLocales();
 const language = locales[0]?.languageCode ?? 'en';
 
 i18n
