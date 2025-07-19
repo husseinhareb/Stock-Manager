@@ -2,10 +2,20 @@
 const { getDefaultConfig } = require('expo/metro-config');
 
 module.exports = (async () => {
+  // 1. Grab Expo's default Metro config
   const config = await getDefaultConfig(__dirname);
-  // Enable .wasm as an asset
+
+  // 2. Keep WebAssembly files as assets
   config.resolver.assetExts.push('wasm');
-  // If needed, handle .cjs/.mjs in dependencies
-  config.resolver.sourceExts.push('cjs', 'mjs');
+
+  // 3. Ensure Metro treats these extensions as source (so Babel runs on them)
+  config.resolver.sourceExts = [
+    ...config.resolver.sourceExts,
+    'cjs',
+    'mjs',
+    'ts',
+    'tsx',
+  ];
+
   return config;
 })();

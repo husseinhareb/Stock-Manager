@@ -1,0 +1,9 @@
+{
+  "settings": {
+    "title": "Settings",
+    "notifications": "Notifications",
+    "darkMode": "Dark Mode",
+    "signOut": "Sign Out",
+    "language": "Language"
+  }
+}

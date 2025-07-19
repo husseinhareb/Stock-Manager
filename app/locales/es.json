@@ -1,0 +1,9 @@
+{
+  "settings": {
+    "title": "Configuración",
+    "notifications": "Notificaciones",
+    "darkMode": "Modo Oscuro",
+    "signOut": "Cerrar sesión",
+    "language": "Idioma"
+  }
+}
