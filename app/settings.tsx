@@ -1,3 +1,4 @@
+// app/screens/SettingsScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -16,9 +17,9 @@ import { Colors } from '@/constants/Colors';
 import { useTranslation } from 'react-i18next';
 
 const LANGS = [
-  { code: 'en', label: 'English' },
-  { code: 'es', label: 'Español' },
-  { code: 'fr', label: 'Français' },
+  { code: 'en', labelKey: 'settings.languageOptions.en' },
+  { code: 'es', labelKey: 'settings.languageOptions.es' },
+  { code: 'fr', labelKey: 'settings.languageOptions.fr' },
 ];
 
 const THEMES: Array<'system' | 'light' | 'dark'> = [
@@ -30,8 +31,10 @@ const THEMES: Array<'system' | 'light' | 'dark'> = [
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
   const systemScheme = useColorScheme();
-  const [themePref, setThemePref] = useState<'system' | 'light' | 'dark'>('system');
-  const effectiveScheme = themePref === 'system' ? systemScheme : themePref;
+  const [themePref, setThemePref] =
+    useState<'system' | 'light' | 'dark'>('system');
+  const effectiveScheme =
+    themePref === 'system' ? systemScheme : themePref;
   const theme = Colors[effectiveScheme ?? 'light'];
 
   const [notifications, setNotifications] = useState(false);
@@ -56,17 +59,33 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>  
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
       <ScrollView contentContainerStyle={styles.content}>
         {/* Notifications */}
-        <View style={[styles.row, { borderColor: theme.border }]}>  
-          <MaterialIcons name="notifications" size={24} color={theme.accent} style={styles.icon} />
-          <Text style={[styles.label, { color: theme.text }]}>{t('settings.notifications')}</Text>
+        <View style={[styles.row, { borderColor: theme.border }]}>
+          <MaterialIcons
+            name="notifications"
+            size={24}
+            color={theme.accent}
+            style={styles.icon}
+          />
+          <Text
+            style={[styles.label, { color: theme.text }]}
+          >
+            {t('settings.notifications')}
+          </Text>
           <Switch
             value={notifications}
             onValueChange={toggleNotifications}
-            trackColor={{ true: theme.accent, false: theme.border }}
-            thumbColor={notifications ? theme.primary : theme.text}
+            trackColor={{
+              true: theme.accent,
+              false: theme.border,
+            }}
+            thumbColor={
+              notifications ? theme.primary : theme.text
+            }
           />
         </View>
 
@@ -75,12 +94,27 @@ export default function SettingsScreen() {
           onPress={() => setThemeModalVisible(true)}
           style={[styles.row, { borderColor: theme.border }]}
         >
-          <MaterialIcons name="brightness-6" size={24} color={theme.accent} style={styles.icon} />
-          <Text style={[styles.label, { color: theme.text }]}>{t('settings.theme')}</Text>
-          <Text style={[styles.value, { color: theme.text }]}>
+          <MaterialIcons
+            name="brightness-6"
+            size={24}
+            color={theme.accent}
+            style={styles.icon}
+          />
+          <Text
+            style={[styles.label, { color: theme.text }]}
+          >
+            {t('settings.theme')}
+          </Text>
+          <Text
+            style={[styles.value, { color: theme.text }]}
+          >
             {t(`settings.themeOptions.${themePref}`)}
           </Text>
-          <FontAwesome name="angle-right" size={20} color={theme.text} />
+          <FontAwesome
+            name="angle-right"
+            size={20}
+            color={theme.text}
+          />
         </TouchableOpacity>
 
         {/* Language Picker */}
@@ -88,62 +122,169 @@ export default function SettingsScreen() {
           onPress={() => setLangModalVisible(true)}
           style={[styles.row, { borderColor: theme.border }]}
         >
-          <MaterialIcons name="language" size={24} color={theme.accent} style={styles.icon} />
-          <Text style={[styles.label, { color: theme.text }]}>{t('settings.language')}</Text>
-          <Text style={[styles.value, { color: theme.text }]}>
-            {LANGS.find((l) => l.code === i18n.language)?.label}
+          <MaterialIcons
+            name="language"
+            size={24}
+            color={theme.accent}
+            style={styles.icon}
+          />
+          <Text
+            style={[styles.label, { color: theme.text }]}
+          >
+            {t('settings.language')}
           </Text>
-          <FontAwesome name="angle-right" size={20} color={theme.text} />
+          <Text
+            style={[styles.value, { color: theme.text }]}
+          >
+            {t(
+              LANGS.find((l) => l.code === i18n.language)!
+                .labelKey
+            )}
+          </Text>
+          <FontAwesome
+            name="angle-right"
+            size={20}
+            color={theme.text}
+          />
         </TouchableOpacity>
 
         {/* Sign Out */}
-        <TouchableOpacity style={[styles.row, { borderColor: theme.border }]}>  
-          <MaterialIcons name="logout" size={24} color={theme.accent} style={styles.icon} />
-          <Text style={[styles.label, { color: theme.text }]}>{t('settings.signOut')}</Text>
+        <TouchableOpacity
+          style={[styles.row, { borderColor: theme.border }]}
+        >
+          <MaterialIcons
+            name="logout"
+            size={24}
+            color={theme.accent}
+            style={styles.icon}
+          />
+          <Text
+            style={[styles.label, { color: theme.text }]}
+          >
+            {t('settings.signOut')}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
       {/* Theme Modal */}
-      <Modal visible={themeModalVisible} transparent animationType="slide">
+      <Modal
+        visible={themeModalVisible}
+        transparent
+        animationType="slide"
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>  
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>{t('settings.selectTheme')}</Text>
+          <View
+            style={[
+              styles.modalBox,
+              {
+                backgroundColor: theme.card,
+                shadowColor: theme.shadow,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: theme.primary },
+              ]}
+            >
+              {t('settings.selectTheme')}
+            </Text>
             {THEMES.map((opt) => (
               <Pressable
                 key={opt}
                 style={styles.optionRow}
                 onPress={() => handleThemeSelect(opt)}
               >
-                <Text style={[styles.optionText, { color: theme.text }]}>
+                <Text
+                  style={[
+                    styles.optionText,
+                    { color: theme.text },
+                  ]}
+                >
                   {t(`settings.themeOptions.${opt}`)}
                 </Text>
-                {themePref === opt && <FontAwesome name="check" size={18} color={theme.accent} />}
+                {themePref === opt && (
+                  <FontAwesome
+                    name="check"
+                    size={18}
+                    color={theme.accent}
+                  />
+                )}
               </Pressable>
             ))}
-            <Pressable onPress={() => setThemeModalVisible(false)} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>  
-              <Text style={{ color: '#fff' }}>{t('common.cancel')}</Text>
+            <Pressable
+              onPress={() => setThemeModalVisible(false)}
+              style={[
+                styles.modalBtn,
+                { backgroundColor: theme.accent },
+              ]}
+            >
+              <Text style={{ color: '#fff' }}>
+                {t('common.cancel')}
+              </Text>
             </Pressable>
           </View>
         </View>
       </Modal>
 
       {/* Language Modal */}
-      <Modal visible={langModalVisible} transparent animationType="slide">
+      <Modal
+        visible={langModalVisible}
+        transparent
+        animationType="slide"
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>  
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>{t('settings.selectLanguage')}</Text>
+          <View
+            style={[
+              styles.modalBox,
+              {
+                backgroundColor: theme.card,
+                shadowColor: theme.shadow,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: theme.primary },
+              ]}
+            >
+              {t('settings.selectLanguage')}
+            </Text>
             {LANGS.map((opt) => (
               <Pressable
                 key={opt.code}
                 style={styles.optionRow}
                 onPress={() => handleLanguageSelect(opt.code)}
               >
-                <Text style={[styles.optionText, { color: theme.text }]}>{opt.label}</Text>
-                {i18n.language === opt.code && <FontAwesome name="check" size={18} color={theme.accent} />}
+                <Text
+                  style={[
+                    styles.optionText,
+                    { color: theme.text },
+                  ]}
+                >
+                  {t(opt.labelKey)}
+                </Text>
+                {i18n.language === opt.code && (
+                  <FontAwesome
+                    name="check"
+                    size={18}
+                    color={theme.accent}
+                  />
+                )}
               </Pressable>
             ))}
-            <Pressable onPress={() => setLangModalVisible(false)} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>  
-              <Text style={{ color: '#fff' }}>{t('common.cancel')}</Text>
+            <Pressable
+              onPress={() => setLangModalVisible(false)}
+              style={[
+                styles.modalBtn,
+                { backgroundColor: theme.accent },
+              ]}
+            >
+              <Text style={{ color: '#fff' }}>
+                {t('common.cancel')}
+              </Text>
             </Pressable>
           </View>
         </View>

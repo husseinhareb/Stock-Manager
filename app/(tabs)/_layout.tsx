@@ -4,8 +4,10 @@ import { FontAwesome } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import { useTranslation } from 'react-i18next';
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
 
@@ -25,8 +27,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="china"
         options={{
-          title: 'China',
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+          title: t('screens.china'),
+          tabBarIcon: ({ color, size }) => (
             <FontAwesome name="archive" size={size} color={color} />
           ),
         }}
@@ -34,8 +36,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="brazil"
         options={{
-          title: 'Brazil',
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+          title: t('screens.brazil'),
+          tabBarIcon: ({ color, size }) => (
             <FontAwesome name="cubes" size={size} color={color} />
           ),
         }}
@@ -43,8 +45,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="client"
         options={{
-          title: 'Client',
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+          title: t('screens.client'),
+          tabBarIcon: ({ color, size }) => (
             <FontAwesome name="user-circle" size={size} color={color} />
           ),
         }}
@@ -52,8 +54,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="map"
         options={{
-          title: 'Map',
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+          title: t('screens.map'),
+          tabBarIcon: ({ color, size }) => (
             <FontAwesome name="map" size={size} color={color} />
           ),
         }}

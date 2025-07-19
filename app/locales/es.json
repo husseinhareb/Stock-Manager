@@ -1,9 +1,31 @@
 {
+  "screens": {
+    "home": "Inicio",
+    "settings": "Ajustes",
+    "china": "China",
+    "brazil": "Brasil",
+    "client": "Cliente",
+    "map": "Mapa"
+  },
   "settings": {
-    "title": "Configuración",
     "notifications": "Notificaciones",
-    "darkMode": "Modo Oscuro",
-    "signOut": "Cerrar sesión",
-    "language": "Idioma"
+    "theme": "Tema",
+    "themeOptions": {
+      "system": "Sistema",
+      "light": "Claro",
+      "dark": "Oscuro"
+    },
+    "selectTheme": "Seleccionar tema",
+    "language": "Idioma",
+    "languageOptions": {
+      "en": "Inglés",
+      "es": "Español",
+      "fr": "Francés"
+    },
+    "selectLanguage": "Seleccionar idioma",
+    "signOut": "Cerrar sesión"
+  },
+  "common": {
+    "cancel": "Cancelar"
   }
 }
