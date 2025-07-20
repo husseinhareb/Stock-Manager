@@ -25,6 +25,29 @@
     "selectLanguage": "Select Language",
     "signOut": "Sign Out"
   },
+  "brazil": {
+    "alert": {
+      "loadError": "Failed to load data",
+      "invalidMove": "Please enter a valid quantity to move",
+      "moveFailed": "Failed to move items",
+      "invalidReturn": "Please enter a valid quantity to return",
+      "returnFailed": "Failed to return items",
+      "invalidPrice": "Please enter a valid price",
+      "saveFailed": "Failed to save price"
+    },
+    "placeholder": {
+      "qty": "Qty",
+      "ret": "Ret",
+      "unitPrice": "Unit price"
+    },
+    "chinaStock": "China Stock",
+    "brazilStock": "Brazil Stock",
+    "footer": {
+      "items": "Items: {{count}}",
+      "pcs": "Pieces: {{count}}"
+    },
+    "setPrice": "Set price for {{name}}"
+  },
   "map": {
     "markerDescription": "Tap to view client",
     "selectClientModalTitle": "Select Client to Pin",

@@ -169,11 +169,14 @@ export default function ClientScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>      
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <TouchableOpacity onPress={() => setClientModalVisible(true)} style={[styles.addBtn, { backgroundColor: theme.accent }]}>          
+        <TouchableOpacity
+          onPress={() => setClientModalVisible(true)}
+          style={[styles.addBtn, { backgroundColor: theme.accent }]}>
           <FontAwesome name="plus" size={20} color="#fff" />
         </TouchableOpacity>
+
 
         {isBuilding ? (
           <>
@@ -186,7 +189,7 @@ export default function ClientScreen() {
                 const raw = selection[a.id];
                 const selected = raw !== undefined;
                 return (
-                  <View key={a.id} style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>                    
+                  <View key={a.id} style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
                     <Pressable onPress={() => setSelection(sel => {
                       const next = { ...sel };
                       if (selected) delete next[a.id]; else next[a.id] = '1';
@@ -196,7 +199,7 @@ export default function ClientScreen() {
                     </Pressable>
                     <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{a.name}</Text>
                     <Text style={[styles.infoText, { color: theme.text }]}>{t('client.available', { count: a.quantity })}</Text>
-                    <Text style={[styles.infoText, { color: theme.text }]}>{`$${(priceMap[a.id]||0).toFixed(2)}`}</Text>
+                    <Text style={[styles.infoText, { color: theme.text }]}>{`$${(priceMap[a.id] || 0).toFixed(2)}`}</Text>
                     <TextInput
                       value={raw}
                       editable={selected}
@@ -210,14 +213,14 @@ export default function ClientScreen() {
                 );
               })}
             </ScrollView>
-            <View style={[styles.builderFooter, { backgroundColor: theme.card, borderColor: theme.border }]}>              
+            <View style={[styles.builderFooter, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <Text style={[styles.totalText, { color: theme.text }]}>{t('client.total', { total: currentTotal.toFixed(2) })}</Text>
               <View style={styles.footerButtons}>
-                <Pressable onPress={saveClient} style={[styles.actionBtn, { backgroundColor: theme.accent }]}>                  
+                <Pressable onPress={saveClient} style={[styles.actionBtn, { backgroundColor: theme.accent }]}>
                   <FontAwesome name="save" size={18} color="#fff" />
                   <Text style={styles.actionBtnText}>{t('common.save')}</Text>
                 </Pressable>
-                <Pressable onPress={() => shareReceipt({ client: clientName, total: currentTotal, items: currentItems })} style={[styles.actionBtn, { backgroundColor: theme.accent }]}>                  
+                <Pressable onPress={() => shareReceipt({ client: clientName, total: currentTotal, items: currentItems })} style={[styles.actionBtn, { backgroundColor: theme.accent }]}>
                   <Text style={styles.actionBtnText}>{t('client.sharePDF')}</Text>
                 </Pressable>
               </View>
@@ -234,7 +237,7 @@ export default function ClientScreen() {
               </View>
             )}
             renderItem={({ item }) => (
-              <Pressable style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]} onPress={() => openDetail(item)}>                
+              <Pressable style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]} onPress={() => openDetail(item)}>
                 <FontAwesome name="user" size={24} color={theme.accent} style={styles.icon} />
                 <Text style={[styles.cardText, { color: theme.text }]}>{item.client}</Text>
                 <Text style={[styles.infoText, { color: theme.text }]}>{`$${item.total.toFixed(2)}`}</Text>
@@ -246,7 +249,7 @@ export default function ClientScreen() {
         {/* Name Modal */}
         <Modal visible={clientModalVisible} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>              
+            <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
               <FontAwesome name="user-circle" size={32} color={theme.accent} style={styles.modalIcon} />
               <Text style={[styles.modalTitle, { color: theme.primary }]}>{t('client.newClientName')}</Text>
               <TextInput
@@ -257,7 +260,7 @@ export default function ClientScreen() {
                 style={[styles.modalInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
               />
               <View style={styles.modalActions}>
-                <Pressable onPress={() => { setClientModalVisible(false); setIsBuilding(true); }} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>                  
+                <Pressable onPress={() => { setClientModalVisible(false); setIsBuilding(true); }} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>
                   <Text style={{ color: '#fff' }}>{t('common.save')}</Text>
                 </Pressable>
                 <Pressable onPress={() => setClientModalVisible(false)} style={styles.modalBtn}>
@@ -271,7 +274,7 @@ export default function ClientScreen() {
         {/* Detail Modal */}
         <Modal visible={!!detailModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>              
+            <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
               <View style={styles.detailHeader}>
                 <FontAwesome name="book" size={28} color={theme.accent} />
                 <Text style={[styles.modalTitle, { color: theme.text }]}>{detailModal?.client}</Text>
@@ -282,7 +285,7 @@ export default function ClientScreen() {
                     <Text style={[styles.detailItem, { color: theme.text }]} numberOfLines={1}>{it.name}</Text>
                     <Text style={[styles.detailQty, { color: theme.text }]}>{it.quantity}</Text>
                     <Text style={[styles.detailPrice, { color: theme.text }]}>{`$${it.unitPrice.toFixed(2)}`}</Text>
-                    <Text style={[styles.detailTotal, { color: theme.text }]}>{`$${(it.quantity*it.unitPrice).toFixed(2)}`}</Text>
+                    <Text style={[styles.detailTotal, { color: theme.text }]}>{`$${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
                   </View>
                 ))}
               </ScrollView>
@@ -290,7 +293,7 @@ export default function ClientScreen() {
                 <Pressable onPress={() => detailModal && shareReceipt(detailModal)} style={styles.modalBtn}>
                   <Text style={{ color: '#fff' }}>{t('client.sharePDF')}</Text>
                 </Pressable>
-                <Pressable onPress={() => setDetailModal(null)} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>                  
+                <Pressable onPress={() => setDetailModal(null)} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>
                   <Text style={{ color: '#fff' }}>{t('common.close')}</Text>
                 </Pressable>
               </View>
@@ -324,8 +327,10 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   addBtn: {
-    padding: 8,
+    padding: 12,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Empty state

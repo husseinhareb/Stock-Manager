@@ -116,7 +116,7 @@ export default function MapScreen() {
         styles.container,
         {
           backgroundColor: theme.background,
-          paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+          paddingTop: 0,
         },
       ]}
     >
