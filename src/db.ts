@@ -462,3 +462,19 @@ export async function deleteClient(id: number): Promise<void> {
   const db = await getDB();
   await db.runAsync(`DELETE FROM clients WHERE id=?;`, id);
 }
+
+
+export async function deleteSavedClient(clientId: number): Promise<void> {
+  const db = await getDB();
+  await db.execAsync(`BEGIN TRANSACTION;`);
+  try {
+    // Remove associated items
+    await db.runAsync(`DELETE FROM saved_client_items WHERE client_id = ?;`, clientId);
+    // Remove the client
+    await db.runAsync(`DELETE FROM saved_clients WHERE id = ?;`, clientId);
+    await db.execAsync(`COMMIT;`);
+  } catch (error) {
+    await db.execAsync(`ROLLBACK;`);
+    throw error;
+  }
+}

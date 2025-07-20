@@ -31,6 +31,7 @@ import {
   fetchClientItems,
   sellSecondary,
   saveClient as persistClient,
+  deleteSavedClient
 } from '../../src/db';
 
 type ClientItem = {
@@ -131,6 +132,15 @@ export default function ClientScreen() {
       });
     } catch (e: any) {
       Alert.alert(t('client.alert.detailLoadFailed'), e.message);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteSavedClient(id);
+      loadData(); // refresh the list
+    } catch (e: any) {
+      Alert.alert(t('client.alert.error'), e.message);
     }
   };
 
@@ -237,11 +247,29 @@ export default function ClientScreen() {
               </View>
             )}
             renderItem={({ item }) => (
-              <Pressable style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]} onPress={() => openDetail(item)}>
+              <Pressable
+                style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}
+                onPress={() => openDetail(item)}
+                onLongPress={() =>
+                  Alert.alert(
+                    t('client.alert.confirmDeleteTitle'),
+                    t('client.alert.confirmDeleteMessage'),
+                    [
+                      { text: t('common.cancel'), style: 'cancel' },
+                      {
+                        text: t('common.delete'),
+                        style: 'destructive',
+                        onPress: () => handleDelete(item.id),
+                      },
+                    ]
+                  )
+                }
+              >
                 <FontAwesome name="user" size={24} color={theme.accent} style={styles.icon} />
                 <Text style={[styles.cardText, { color: theme.text }]}>{item.client}</Text>
                 <Text style={[styles.infoText, { color: theme.text }]}>{`$${item.total.toFixed(2)}`}</Text>
               </Pressable>
+
             )}
           />
         )}
