@@ -66,10 +66,18 @@ async function getDB(): Promise<SQLiteDatabase> {
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS saved_client_items (
           client_id     INTEGER NOT NULL REFERENCES saved_clients(id) ON DELETE CASCADE,
-          article_id  INTEGER NOT NULL REFERENCES main_stock(id),
-          quantity    INTEGER NOT NULL,
-          price       REAL    NOT NULL,
+          article_id    INTEGER NOT NULL REFERENCES main_stock(id),
+          quantity      INTEGER NOT NULL,
+          price         REAL    NOT NULL,
           PRIMARY KEY (client_id, article_id)
+        );
+      `);
+
+      // ----- Settings -----
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS settings (
+          key   TEXT PRIMARY KEY,
+          value TEXT NOT NULL
         );
       `);
 
@@ -82,13 +90,14 @@ async function getDB(): Promise<SQLiteDatabase> {
   return _dbPromise;
 }
 
+
 /** Types used throughout the app */
-export type Article           = { id: number; name: string; quantity: number };
-export type Price             = { article_id: number; price: number };
-export type ClientItem          = { article_id: number; quantity: number; name: string; price: number };
-export type ClientPin         = { id: number; name: string; latitude: number; longitude: number };
-export type SavedClientSummary  = { id: number; client: string; created_at: number; total: number };
-export type SavedClientItem     = { article_id: number; name: string; quantity: number; price: number };
+export type Article              = { id: number; name: string; quantity: number };
+export type Price                = { article_id: number; price: number };
+export type ClientItem           = { article_id: number; quantity: number; name: string; price: number };
+export type ClientPin            = { id: number; name: string; latitude: number; longitude: number };
+export type SavedClientSummary   = { id: number; client: string; created_at: number; total: number };
+export type SavedClientItem      = { article_id: number; name: string; quantity: number; price: number };
 
 /** Ensure DB is open and initialized */
 export async function initDB(): Promise<void> {
@@ -477,4 +486,37 @@ export async function deleteSavedClient(clientId: number): Promise<void> {
     await db.execAsync(`ROLLBACK;`);
     throw error;
   }
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Settings API
+////////////////////////////////////////////////////////////////////////////////
+
+export async function saveSetting(key: string, value: string): Promise<void> {
+  const db = await getDB();
+  await db.runAsync(
+    `INSERT INTO settings (key, value)
+       VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE
+       SET value = excluded.value;`,
+    key,
+    value
+  );
+}
+
+/**
+ * Retrieve a setting value by key, or return defaultValue if not found.
+ */
+export async function getSetting(
+  key: string,
+  defaultValue: string
+): Promise<string> {
+  const db = await getDB();
+  const row = await db.getFirstAsync<{ value: string }>(
+    `SELECT value FROM settings WHERE key = ?;`,
+    key
+  );
+  return row?.value ?? defaultValue;
 }

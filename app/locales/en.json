@@ -23,7 +23,21 @@
       "fr": "Français"
     },
     "selectLanguage": "Select Language",
-    "signOut": "Sign Out"
+    "signOut": "Sign Out",
+    "currency": "Currency",
+    "selectCurrency": "Select Currency",
+    "quit": "Quit",
+    "currencyOptions": {
+      "usd": "US Dollar",
+      "eur": "Euro",
+      "gbp": "British Pound",
+      "jpy": "Japanese Yen",
+      "cad": "Canadian Dollar",
+      "aud": "Australian Dollar",
+      "chf": "Swiss Franc",
+      "cny": "Chinese Yuan",
+      "brl": "Brazilian Real"
+    }
   },
   "brazil": {
     "alert": {
@@ -86,6 +100,8 @@
       "grandTotal": "Grand Total"
     },
     "alert": {
+      "confirmDeleteTitle": "Delete Client?",
+      "confirmDeleteMessage": "This will permanently remove this client and their receipt. Continue?",
       "loadFailed": "Failed to load data",
       "enterName": "Please enter a client name",
       "selectItem": "Please select at least one item",
@@ -97,6 +113,7 @@
   "common": {
     "save": "Save",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "delete": "Delete"
   }
 }

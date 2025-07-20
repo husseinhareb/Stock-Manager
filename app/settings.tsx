@@ -1,10 +1,9 @@
 // app/screens/SettingsScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Switch,
   TouchableOpacity,
   Pressable,
   Modal,
@@ -15,6 +14,7 @@ import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useTranslation } from 'react-i18next';
+import { saveSetting, getSetting } from '../src/db';
 
 const LANGS = [
   { code: 'en', labelKey: 'settings.languageOptions.en' },
@@ -28,6 +28,18 @@ const THEMES: Array<'system' | 'light' | 'dark'> = [
   'dark',
 ];
 
+const CURRENCIES = [
+  { code: 'USD', symbol: '$', labelKey: 'settings.currencyOptions.usd' },
+  { code: 'EUR', symbol: '€', labelKey: 'settings.currencyOptions.eur' },
+  { code: 'GBP', symbol: '£', labelKey: 'settings.currencyOptions.gbp' },
+  { code: 'JPY', symbol: '¥', labelKey: 'settings.currencyOptions.jpy' },
+  { code: 'CAD', symbol: 'C$', labelKey: 'settings.currencyOptions.cad' },
+  { code: 'AUD', symbol: 'A$', labelKey: 'settings.currencyOptions.aud' },
+  { code: 'CHF', symbol: 'CHF', labelKey: 'settings.currencyOptions.chf' },
+  { code: 'CNY', symbol: '¥', labelKey: 'settings.currencyOptions.cny' },
+  { code: 'BRL', symbol: 'R$', labelKey: 'settings.currencyOptions.brl' },
+];
+
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
   const systemScheme = useColorScheme();
@@ -37,58 +49,98 @@ export default function SettingsScreen() {
     themePref === 'system' ? systemScheme : themePref;
   const theme = Colors[effectiveScheme ?? 'light'];
 
-  const [notifications, setNotifications] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState('USD');
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [langModalVisible, setLangModalVisible] = useState(false);
+  const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const toggleNotifications = (val: boolean) => {
-    setNotifications(val);
-    // TODO: persist notifications setting
-  };
+  // Load settings from database on component mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const [theme, currency, language] = await Promise.all([
+          getSetting('theme', 'system'),
+          getSetting('currency', 'USD'),
+          getSetting('language', 'en')
+        ]);
 
-  const handleThemeSelect = (opt: 'system' | 'light' | 'dark') => {
+        setThemePref(theme as 'system' | 'light' | 'dark');
+        setSelectedCurrency(currency);
+        
+        // Set language if different from current
+        if (language !== i18n.language) {
+          i18n.changeLanguage(language);
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, [i18n]);
+
+  const handleThemeSelect = async (opt: 'system' | 'light' | 'dark') => {
     setThemePref(opt);
     setThemeModalVisible(false);
-    // TODO: persist theme preference
+    try {
+      await saveSetting('theme', opt);
+    } catch (error) {
+      console.error('Failed to save theme setting:', error);
+    }
   };
 
-  const handleLanguageSelect = (code: string) => {
+  const handleLanguageSelect = async (code: string) => {
     i18n.changeLanguage(code);
     setLangModalVisible(false);
-    // TODO: persist language selection
+    try {
+      await saveSetting('language', code);
+    } catch (error) {
+      console.error('Failed to save language setting:', error);
+    }
   };
+
+  const handleCurrencySelect = async (code: string) => {
+    setSelectedCurrency(code);
+    setCurrencyModalVisible(false);
+    try {
+      await saveSetting('currency', code);
+    } catch (error) {
+      console.error('Failed to save currency setting:', error);
+    }
+  };
+
+  const handleQuit = () => {
+    // TODO: implement quit functionality
+    console.log('Quit app');
+  };
+
+  const getCurrentCurrency = () => {
+    return CURRENCIES.find(c => c.code === selectedCurrency) || CURRENCIES[0];
+  };
+
+  // Show loading state while settings are being loaded
+  if (isLoading) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.background }]}
+      >
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: theme.text }]}>
+            {t('common.loading')}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Notifications */}
-        <View style={[styles.row, { borderColor: theme.border }]}>
-          <MaterialIcons
-            name="notifications"
-            size={24}
-            color={theme.accent}
-            style={styles.icon}
-          />
-          <Text
-            style={[styles.label, { color: theme.text }]}
-          >
-            {t('settings.notifications')}
-          </Text>
-          <Switch
-            value={notifications}
-            onValueChange={toggleNotifications}
-            trackColor={{
-              true: theme.accent,
-              false: theme.border,
-            }}
-            thumbColor={
-              notifications ? theme.primary : theme.text
-            }
-          />
-        </View>
-
         {/* Theme Picker */}
         <TouchableOpacity
           onPress={() => setThemeModalVisible(true)}
@@ -148,12 +200,13 @@ export default function SettingsScreen() {
           />
         </TouchableOpacity>
 
-        {/* Sign Out */}
+        {/* Currency Picker */}
         <TouchableOpacity
+          onPress={() => setCurrencyModalVisible(true)}
           style={[styles.row, { borderColor: theme.border }]}
         >
           <MaterialIcons
-            name="logout"
+            name="attach-money"
             size={24}
             color={theme.accent}
             style={styles.icon}
@@ -161,7 +214,35 @@ export default function SettingsScreen() {
           <Text
             style={[styles.label, { color: theme.text }]}
           >
-            {t('settings.signOut')}
+            {t('settings.currency')}
+          </Text>
+          <Text
+            style={[styles.value, { color: theme.text }]}
+          >
+            {getCurrentCurrency().symbol} - {t(getCurrentCurrency().labelKey)}
+          </Text>
+          <FontAwesome
+            name="angle-right"
+            size={20}
+            color={theme.text}
+          />
+        </TouchableOpacity>
+
+        {/* Quit */}
+        <TouchableOpacity
+          onPress={handleQuit}
+          style={[styles.row, { borderColor: theme.border }]}
+        >
+          <MaterialIcons
+            name="exit-to-app"
+            size={24}
+            color={theme.accent}
+            style={styles.icon}
+          />
+          <Text
+            style={[styles.label, { color: theme.text }]}
+          >
+            {t('settings.quit')}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -289,6 +370,70 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Currency Modal */}
+      <Modal
+        visible={currencyModalVisible}
+        transparent
+        animationType="slide"
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalBox,
+              {
+                backgroundColor: theme.card,
+                shadowColor: theme.shadow,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: theme.primary },
+              ]}
+            >
+              {t('settings.selectCurrency')}
+            </Text>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {CURRENCIES.map((opt) => (
+                <Pressable
+                  key={opt.code}
+                  style={styles.optionRow}
+                  onPress={() => handleCurrencySelect(opt.code)}
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      { color: theme.text },
+                    ]}
+                  >
+                    {opt.symbol} - {t(opt.labelKey)}
+                  </Text>
+                  {selectedCurrency === opt.code && (
+                    <FontAwesome
+                      name="check"
+                      size={18}
+                      color={theme.accent}
+                    />
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Pressable
+              onPress={() => setCurrencyModalVisible(false)}
+              style={[
+                styles.modalBtn,
+                { backgroundColor: theme.accent },
+              ]}
+            >
+              <Text style={{ color: '#fff' }}>
+                {t('common.cancel')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -342,5 +487,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
   },
 });
