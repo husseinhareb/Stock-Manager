@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 import {
   fetchMainStock,
@@ -31,6 +32,7 @@ import { Colors } from '@/constants/Colors';
 export default function BrazilStockScreen() {
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
+  const { t } = useTranslation();
 
   const [mainStock, setMainStock] = useState<Article[]>([]);
   const [brazilStock, setBrazilStock] = useState<Article[]>([]);
@@ -52,9 +54,9 @@ export default function BrazilStockScreen() {
       setBrazilStock(br);
       setPrices(pr);
     } catch (e: any) {
-      Alert.alert('Error loading data', e.message);
+      Alert.alert(t('brazil.alert.loadError'), e.message);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadData(); }, [loadData]);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
@@ -74,7 +76,7 @@ export default function BrazilStockScreen() {
 
   const onMove = async (item: Article) => {
     const q = parseInt(moveQty[item.id] || '0', 10);
-    if (q <= 0) return Alert.alert('Please enter a positive quantity to move');
+    if (q <= 0) return Alert.alert(t('brazil.alert.invalidMove'));
     try {
       await moveToSecondary(item.id, q);
       setMoveQty(prev => ({ ...prev, [item.id]: '' }));
@@ -82,63 +84,55 @@ export default function BrazilStockScreen() {
       setPriceInput('');
       setPriceModalVisible(true);
     } catch (e: any) {
-      Alert.alert('Move failed', e.message);
+      Alert.alert(t('brazil.alert.moveFailed'), e.message);
     }
   };
 
   const onReturn = async (item: Article) => {
     const q = parseInt(returnQty[item.id] || '0', 10);
-    if (q <= 0) return Alert.alert('Please enter a positive quantity to return');
+    if (q <= 0) return Alert.alert(t('brazil.alert.invalidReturn'));
     try {
       await returnToMain(item.id, q);
       setReturnQty(prev => ({ ...prev, [item.id]: '' }));
       await loadData();
     } catch (e: any) {
-      Alert.alert('Return failed', e.message);
+      Alert.alert(t('brazil.alert.returnFailed'), e.message);
     }
   };
 
   const onSavePrice = async () => {
     if (!priceModalArticle) return;
     const p = parseFloat(priceInput);
-    if (isNaN(p) || p < 0) return Alert.alert('Invalid price');
+    if (isNaN(p) || p < 0) return Alert.alert(t('brazil.alert.invalidPrice'));
     try {
       await setPrice(priceModalArticle.id, p);
       setPriceModalVisible(false);
       await loadData();
     } catch (e: any) {
-      Alert.alert('Save price failed', e.message);
+      Alert.alert(t('brazil.alert.saveFailed'), e.message);
     }
   };
 
   const renderMoveItem = ({ item }: { item: Article }) => (
-    <Pressable
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: theme.card, shadowColor: theme.shadow },
-        pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
-      ]}
-    >
+    <Pressable style={({ pressed }) => [
+      styles.card,
+      { backgroundColor: theme.card, shadowColor: theme.shadow },
+      pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+    ]}>
       <FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
-      <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>
-        {item.name}
-      </Text>
+      <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
       <View style={[styles.badge, { backgroundColor: theme.accent }]}>
         <Text style={styles.badgeText}>{item.quantity}</Text>
       </View>
       <TextInput
         style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
-        placeholder="Qty"
+        placeholder={t('brazil.placeholder.qty')}
         placeholderTextColor={theme.placeholder}
         keyboardType="numeric"
         value={moveQty[item.id]}
         onChangeText={t => setMoveQty(m => ({ ...m, [item.id]: t }))}
       />
-      <Pressable
-        onPress={() => onMove(item)}
-        style={[styles.solidBtn, { backgroundColor: theme.primary }]}
-        hitSlop={8}
-      >
+      <Pressable onPress={() => onMove(item)} style={[styles.solidBtn, { backgroundColor: theme.primary }]}>
         <FontAwesome name="arrow-right" size={16} color="#fff" />
       </Pressable>
     </Pressable>
@@ -148,17 +142,13 @@ export default function BrazilStockScreen() {
     const unit = priceMap[item.id] || 0;
     const total = (unit * item.quantity).toFixed(2);
     return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.card,
-          { backgroundColor: theme.card, shadowColor: theme.shadow },
-          pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
-        ]}
-      >
+      <Pressable style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: theme.card, shadowColor: theme.shadow },
+        pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+      ]}>
         <FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
-        <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>
-          {item.name}
-        </Text>
+        <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
         <View style={[styles.badge, { backgroundColor: theme.accent }]}>
           <Text style={styles.badgeText}>{item.quantity}</Text>
         </View>
@@ -166,17 +156,13 @@ export default function BrazilStockScreen() {
         <Text style={[styles.cell, { color: theme.text }]}>{`$${total}`}</Text>
         <TextInput
           style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
-          placeholder="Ret"
+          placeholder={t('brazil.placeholder.ret')}
           placeholderTextColor={theme.placeholder}
           keyboardType="numeric"
           value={returnQty[item.id]}
           onChangeText={t => setReturnQty(m => ({ ...m, [item.id]: t }))}
         />
-        <Pressable
-          onPress={() => onReturn(item)}
-          style={[styles.solidBtn, { backgroundColor: '#FF5F6D' }]}
-          hitSlop={8}
-        >
+        <Pressable onPress={() => onReturn(item)} style={[styles.solidBtn, { backgroundColor: '#FF5F6D' }]}>
           <FontAwesome name="arrow-left" size={16} color="#fff" />
         </Pressable>
       </Pressable>
@@ -185,13 +171,9 @@ export default function BrazilStockScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.select({ ios: 'padding' })}
-      >
-        {/* China Stock */}
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.select({ ios: 'padding' })}>
         <View style={[styles.sectionContainer, { backgroundColor: theme.card }]}>
-          <Text style={[styles.sectionTitle, { color: theme.primary }]}>China Stock</Text>
+          <Text style={[styles.sectionTitle, { color: theme.primary }]}>{t('brazil.chinaStock')}</Text>
           <FlatList
             data={mainStock.filter(a => a.quantity > 0)}
             keyExtractor={i => i.id.toString()}
@@ -201,15 +183,12 @@ export default function BrazilStockScreen() {
           />
           <View style={[styles.footerBar, { borderTopColor: theme.border }]}>
             <FontAwesome name="cubes" size={18} color={theme.accent} />
-            <Text style={[styles.footerText, { color: theme.text }]}>
-              {mainTotalQty} items
-            </Text>
+            <Text style={[styles.footerText, { color: theme.text }]}>{t('brazil.footer.items', { count: mainTotalQty })}</Text>
           </View>
         </View>
 
-        {/* Brazil Stock */}
         <View style={[styles.sectionContainer, { backgroundColor: theme.card }]}>
-        <Text style={[styles.heading, { color: theme.primary }]}>China Stock</Text>    
+          <Text style={[styles.heading, { color: theme.primary }]}>{t('brazil.brazilStock')}</Text>
           <FlatList
             data={brazilStock.filter(a => a.quantity > 0)}
             keyExtractor={i => i.id.toString()}
@@ -219,31 +198,21 @@ export default function BrazilStockScreen() {
           />
           <View style={[styles.footerBar, { borderTopColor: theme.border }]}>
             <FontAwesome name="cubes" size={18} color={theme.accent} />
-            <Text style={[styles.footerText, { color: theme.text }]}>
-              {brazilTotalQty} pcs
-            </Text>
-            <FontAwesome
-              name="dollar"
-              size={18}
-              color={theme.accent}
-              style={{ marginLeft: 20 }}
-            />
-            <Text style={[styles.footerText, { color: theme.text }]}>
-              ${brazilTotalVal.toFixed(2)}
-            </Text>
+            <Text style={[styles.footerText, { color: theme.text }]}>{t('brazil.footer.pcs', { count: brazilTotalQty })}</Text>
+            <FontAwesome name="dollar" size={18} color={theme.accent} style={{ marginLeft: 20 }} />
+            <Text style={[styles.footerText, { color: theme.text }]}>{`$${brazilTotalVal.toFixed(2)}`}</Text>
           </View>
         </View>
 
-        {/* Price Modal */}
         <Modal visible={priceModalVisible} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
               <Text style={[styles.modalTitle, { color: theme.primary }]}>
-                Set Price for “{priceModalArticle?.name}”
+                {t('brazil.setPrice', { name: priceModalArticle?.name })}
               </Text>
               <TextInput
                 style={[styles.modalInput, { borderColor: theme.border, color: theme.text }]}
-                placeholder="Unit Price"
+                placeholder={t('brazil.placeholder.unitPrice')}
                 placeholderTextColor={theme.placeholder}
                 keyboardType="numeric"
                 value={priceInput}
@@ -252,13 +221,10 @@ export default function BrazilStockScreen() {
               />
               <View style={styles.modalActions}>
                 <Pressable onPress={() => setPriceModalVisible(false)} style={styles.modalBtn}>
-                  <Text style={{ color: theme.text, fontWeight: '600' }}>Cancel</Text>
+                  <Text style={{ color: theme.text, fontWeight: '600' }}>{t('common.cancel')}</Text>
                 </Pressable>
-                <Pressable
-                  onPress={onSavePrice}
-                  style={[styles.modalBtn, { backgroundColor: theme.primary }]}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '600' }}>Save</Text>
+                <Pressable onPress={onSavePrice} style={[styles.modalBtn, { backgroundColor: theme.primary }]}>
+                  <Text style={{ color: '#fff', fontWeight: '600' }}>{t('common.save')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -268,6 +234,7 @@ export default function BrazilStockScreen() {
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

@@ -1,10 +1,4 @@
 // app/(tabs)/client.tsx
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -21,14 +15,22 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Article, Price } from '../../src/db';
 import {
-  fetchClientItems,
+  fetchSecondaryStock,
   fetchPrices,
   fetchSavedClients,
-  fetchSecondaryStock,
-  saveClient as persistClient,
+  fetchClientItems,
   sellSecondary,
+  saveClient as persistClient,
 } from '../../src/db';
 
 type ClientItem = {
@@ -53,10 +55,10 @@ type SavedClientDetail = {
 };
 
 export default function ClientScreen() {
+  const { t } = useTranslation();
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
 
-  // State
   const [brazilStock, setBrazilStock] = useState<Article[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
   const [savedClients, setSavedClients] = useState<SavedSummary[]>([]);
@@ -66,7 +68,6 @@ export default function ClientScreen() {
   const [clientModalVisible, setClientModalVisible] = useState(false);
   const [detailModal, setDetailModal] = useState<SavedClientDetail | null>(null);
 
-  // Load initial data
   const loadData = useCallback(async () => {
     try {
       const [stock, pr, saved] = await Promise.all([
@@ -78,65 +79,45 @@ export default function ClientScreen() {
       setPrices(pr);
       setSavedClients(saved);
     } catch (e: any) {
-      Alert.alert('Load Failed', e.message);
+      Alert.alert(t('client.alert.loadFailed'), e.message);
     }
-  }, []);
+  }, [t]);
+
   useEffect(() => { loadData(); }, [loadData]);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  // Price map
   const priceMap = useMemo(() => {
-    const m: Record<number, number> = {};
-    prices.forEach(p => m[p.article_id] = p.price);
-    return m;
+    const map: Record<number, number> = {};
+    prices.forEach(p => { map[p.article_id] = p.price; });
+    return map;
   }, [prices]);
 
-  // Build current items
-  const currentItems: ClientItem[] = useMemo(() => {
+  const currentItems = useMemo<ClientItem[]>(() => {
     return brazilStock
       .map(a => {
-        const raw = selection[a.id];
-        const qty = parseInt(raw || '0', 10);
+        const qty = parseInt(selection[a.id] || '0', 10);
         if (qty > 0) {
-          return {
-            id: a.id,
-            name: a.name,
-            quantity: qty,
-            unitPrice: priceMap[a.id] || 0,
-            available: a.quantity,
-          };
+          return { id: a.id, name: a.name, quantity: qty, unitPrice: priceMap[a.id] || 0, available: a.quantity };
         }
         return null;
       })
       .filter((x): x is ClientItem => !!x);
-  }, [selection, brazilStock, priceMap]);
+  }, [brazilStock, selection, priceMap]);
 
   const currentTotal = useMemo(
     () => currentItems.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0),
     [currentItems]
   );
 
-  // Actions
   const saveClient = async () => {
-    if (!clientName.trim()) {
-      return Alert.alert('Enter client name');
-    }
-    if (currentItems.length === 0) {
-      return Alert.alert('Select at least one item');
-    }
+    if (!clientName.trim()) return Alert.alert(t('client.alert.enterName'));
+    if (currentItems.length === 0) return Alert.alert(t('client.alert.selectItem'));
     try {
       await Promise.all(currentItems.map(it => sellSecondary(it.id, it.quantity)));
-      await persistClient(clientName.trim(), currentItems.map(it => ({
-        article_id: it.id,
-        quantity: it.quantity,
-        price: it.unitPrice,
-      })));
-      setSelection({});
-      setClientName('');
-      setIsBuilding(false);
-      loadData();
+      await persistClient(clientName.trim(), currentItems.map(it => ({ article_id: it.id, quantity: it.quantity, price: it.unitPrice })));
+      setSelection({}); setClientName(''); setIsBuilding(false); loadData();
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      Alert.alert(t('client.alert.error'), e.message);
     }
   };
 
@@ -146,16 +127,10 @@ export default function ClientScreen() {
       setDetailModal({
         client: summary.client,
         total: summary.total,
-        items: lines.map(l => ({
-          id: l.article_id,
-          name: l.name,
-          quantity: l.quantity,
-          unitPrice: l.price,
-          available: 0,
-        })),
+        items: lines.map(l => ({ id: l.article_id, name: l.name, quantity: l.quantity, unitPrice: l.price, available: 0 })),
       });
     } catch (e: any) {
-      Alert.alert('Error loading details', e.message);
+      Alert.alert(t('client.alert.detailLoadFailed'), e.message);
     }
   };
 
@@ -168,13 +143,19 @@ export default function ClientScreen() {
         <td style="text-align:right">${(it.quantity * it.unitPrice).toFixed(2)}</td>
       </tr>
     `).join('');
+
     const html = `
-      <h1>Receipt: ${cart.client}</h1>
+      <h1>${t('client.receiptTitle', { name: cart.client })}</h1>
       <table width="100%" style="border-collapse:collapse" border="1" cellpadding="5">
-        <tr><th align="left">Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>
+        <tr>
+          <th align="left">${t('client.table.item')}</th>
+          <th>${t('client.table.qty')}</th>
+          <th>${t('client.table.unitPrice')}</th>
+          <th>${t('client.table.total')}</th>
+        </tr>
         ${rows}
         <tr>
-          <td colspan="3" style="text-align:right"><strong>Grand Total</strong></td>
+          <td colspan="3" style="text-align:right"><strong>${t('client.table.grandTotal')}</strong></td>
           <td style="text-align:right"><strong>${cart.total.toFixed(2)}</strong></td>
         </tr>
       </table>
@@ -183,170 +164,104 @@ export default function ClientScreen() {
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri);
     } catch (e: any) {
-      Alert.alert('Error sharing PDF', e.message);
+      Alert.alert(t('client.alert.shareFailed'), e.message);
     }
   };
 
-  // UI
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <TouchableOpacity
-          onPress={() => setClientModalVisible(true)}
-          style={[styles.addBtn, { backgroundColor: theme.accent }]}
-        >
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>      
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <TouchableOpacity onPress={() => setClientModalVisible(true)} style={[styles.addBtn, { backgroundColor: theme.accent }]}>          
           <FontAwesome name="plus" size={20} color="#fff" />
         </TouchableOpacity>
+
         {isBuilding ? (
           <>
-            {/* Builder */}
             <View style={styles.subHeaderRow}>
               <FontAwesome name="user-circle" size={20} color={theme.primary} />
-              <Text style={[styles.subHeader, { color: theme.primary }]}>
-                {clientName || 'New Client'}
-              </Text>
+              <Text style={[styles.subHeader, { color: theme.primary }]}>{clientName || t('client.newClient')}</Text>
             </View>
             <ScrollView style={styles.itemList}>
               {brazilStock.map(a => {
                 const raw = selection[a.id];
-                const qty = parseInt(raw || '0', 10);
                 const selected = raw !== undefined;
                 return (
-                  <View
-                    key={a.id}
-                    style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}
-                  >
-                    <TouchableOpacity
-                      onPress={() =>
-                        setSelection(sel => {
-                          const next = { ...sel };
-                          if (selected) delete next[a.id];
-                          else next[a.id] = '1';
-                          return next;
-                        })
-                      }
-                    >
-                      <MaterialIcons
-                        name={selected ? 'check-box' : 'check-box-outline-blank'}
-                        size={24}
-                        color={theme.accent}
-                      />
-                    </TouchableOpacity>
-
-                    <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
-                      {a.name}
-                    </Text>
-
-                    <Text style={[styles.infoText, { color: theme.text }]}>
-                      Avail: {a.quantity}
-                    </Text>
-
-                    <Text style={[styles.infoText, { color: theme.text }]}>
-                      ${(priceMap[a.id] || 0).toFixed(2)}
-                    </Text>
-
+                  <View key={a.id} style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>                    
+                    <Pressable onPress={() => setSelection(sel => {
+                      const next = { ...sel };
+                      if (selected) delete next[a.id]; else next[a.id] = '1';
+                      return next;
+                    })}>
+                      <MaterialIcons name={selected ? 'check-box' : 'check-box-outline-blank'} size={24} color={theme.accent} />
+                    </Pressable>
+                    <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{a.name}</Text>
+                    <Text style={[styles.infoText, { color: theme.text }]}>{t('client.available', { count: a.quantity })}</Text>
+                    <Text style={[styles.infoText, { color: theme.text }]}>{`$${(priceMap[a.id]||0).toFixed(2)}`}</Text>
                     <TextInput
                       value={raw}
                       editable={selected}
                       keyboardType="numeric"
-                      onChangeText={t => setSelection(sel => ({ ...sel, [a.id]: t }))}
-                      style={[
-                        styles.qtyInput,
-                        { borderColor: theme.border, color: theme.text, backgroundColor: theme.background },
-                      ]}
+                      onChangeText={val => setSelection(sel => ({ ...sel, [a.id]: val }))}
+                      style={[styles.qtyInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
+                      placeholder={t('client.table.qty')}
+                      placeholderTextColor={theme.placeholder}
                     />
                   </View>
                 );
               })}
             </ScrollView>
-
-            {/* Builder Footer */}
-            <View style={[styles.builderFooter, { borderColor: theme.border, backgroundColor: theme.card }]}>
-              <Text style={[styles.totalText, { color: theme.text }]}>
-                Total: ${currentTotal.toFixed(2)}
-              </Text>
+            <View style={[styles.builderFooter, { backgroundColor: theme.card, borderColor: theme.border }]}>              
+              <Text style={[styles.totalText, { color: theme.text }]}>{t('client.total', { total: currentTotal.toFixed(2) })}</Text>
               <View style={styles.footerButtons}>
-                <TouchableOpacity
-                  onPress={saveClient}
-                  style={[styles.actionBtn, { backgroundColor: theme.accent }]}
-                >
+                <Pressable onPress={saveClient} style={[styles.actionBtn, { backgroundColor: theme.accent }]}>                  
                   <FontAwesome name="save" size={18} color="#fff" />
-                  <Text style={styles.actionBtnText}>Save</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() =>
-                    shareReceipt({
-                      client: clientName,
-                      total: currentTotal,
-                      items: currentItems,
-                    })
-                  }
-                  style={[styles.actionBtn, { backgroundColor: theme.accent }]}
-                >
-                  <Text style={styles.actionBtn}>Share PDF</Text>
-                </TouchableOpacity>
+                  <Text style={styles.actionBtnText}>{t('common.save')}</Text>
+                </Pressable>
+                <Pressable onPress={() => shareReceipt({ client: clientName, total: currentTotal, items: currentItems })} style={[styles.actionBtn, { backgroundColor: theme.accent }]}>                  
+                  <Text style={styles.actionBtnText}>{t('client.sharePDF')}</Text>
+                </Pressable>
               </View>
             </View>
           </>
         ) : (
-          // Saved Clients List
           <FlatList
             data={savedClients}
             keyExtractor={i => i.id.toString()}
             ListEmptyComponent={() => (
               <View style={styles.emptyContainer}>
                 <FontAwesome name="inbox" size={48} color={theme.placeholder} />
-                <Text style={[styles.emptyText, { color: theme.placeholder }]}>
-                  No clients yet. Tap + to begin.
-                </Text>
+                <Text style={[styles.emptyText, { color: theme.placeholder }]}>{t('client.empty')}</Text>
               </View>
             )}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}
-                onPress={() => openDetail(item)}
-              >
+              <Pressable style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]} onPress={() => openDetail(item)}>                
                 <FontAwesome name="user" size={24} color={theme.accent} style={styles.icon} />
                 <Text style={[styles.cardText, { color: theme.text }]}>{item.client}</Text>
-                <Text style={[styles.infoText, { color: theme.text }]}>
-                  ${item.total.toFixed(2)}
-                </Text>
-              </TouchableOpacity>
+                <Text style={[styles.infoText, { color: theme.text }]}>{`$${item.total.toFixed(2)}`}</Text>
+              </Pressable>
             )}
           />
         )}
 
-        {/* Client Name Modal */}
+        {/* Name Modal */}
         <Modal visible={clientModalVisible} transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+            <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>              
               <FontAwesome name="user-circle" size={32} color={theme.accent} style={styles.modalIcon} />
-              <Text style={[styles.modalTitle, { color: theme.primary }]}>New Client Name</Text>
+              <Text style={[styles.modalTitle, { color: theme.primary }]}>{t('client.newClientName')}</Text>
               <TextInput
                 value={clientName}
                 onChangeText={setClientName}
-                placeholder="Enter name..."
+                placeholder={t('client.placeholder.name')}
                 placeholderTextColor={theme.placeholder}
-                style={[
-                  styles.modalInput,
-                  { borderColor: theme.border, color: theme.text, backgroundColor: theme.background },
-                ]}
+                style={[styles.modalInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
               />
               <View style={styles.modalActions}>
-                <Pressable
-                  onPress={() => detailModal && shareReceipt(detailModal)}
-                  style={styles.modalBtn}
-                >
-                  <Text>Share PDF</Text>
+                <Pressable onPress={() => { setClientModalVisible(false); setIsBuilding(true); }} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>                  
+                  <Text style={{ color: '#fff' }}>{t('common.save')}</Text>
                 </Pressable>
-                <Pressable
-                  onPress={() => setDetailModal(null)}
-                  style={[styles.modalBtn, { backgroundColor: theme.accent }]}
-                >
-                  <Text style={{ color: '#fff' }}>Close</Text>
+                <Pressable onPress={() => setClientModalVisible(false)} style={styles.modalBtn}>
+                  <Text>{t('common.cancel')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -356,41 +271,27 @@ export default function ClientScreen() {
         {/* Detail Modal */}
         <Modal visible={!!detailModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+            <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>              
               <View style={styles.detailHeader}>
                 <FontAwesome name="book" size={28} color={theme.accent} />
-                <Text style={[styles.modalTitle, { color: theme.text }]}>
-                  {detailModal?.client}
-                </Text>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>{detailModal?.client}</Text>
               </View>
               <ScrollView style={styles.detailList}>
                 {detailModal?.items.map((it, idx) => (
                   <View key={idx} style={styles.detailRow}>
-                    <Text style={[styles.detailItem, { color: theme.text }]} numberOfLines={1}>
-                      {it.name}
-                    </Text>
+                    <Text style={[styles.detailItem, { color: theme.text }]} numberOfLines={1}>{it.name}</Text>
                     <Text style={[styles.detailQty, { color: theme.text }]}>{it.quantity}</Text>
-                    <Text style={[styles.detailPrice, { color: theme.text }]}>
-                      ${it.unitPrice.toFixed(2)}
-                    </Text>
-                    <Text style={[styles.detailTotal, { color: theme.text }]}>
-                      ${(it.quantity * it.unitPrice).toFixed(2)}
-                    </Text>
+                    <Text style={[styles.detailPrice, { color: theme.text }]}>{`$${it.unitPrice.toFixed(2)}`}</Text>
+                    <Text style={[styles.detailTotal, { color: theme.text }]}>{`$${(it.quantity*it.unitPrice).toFixed(2)}`}</Text>
                   </View>
                 ))}
               </ScrollView>
               <View style={styles.modalActions}>
-                <Pressable
-                  onPress={() => detailModal && shareReceipt(detailModal)}
-                  style={styles.modalBtn}
-                >
-                  <Text style={{ color: '#fff' }}>Share PDF</Text>
+                <Pressable onPress={() => detailModal && shareReceipt(detailModal)} style={styles.modalBtn}>
+                  <Text style={{ color: '#fff' }}>{t('client.sharePDF')}</Text>
                 </Pressable>
-                <Pressable
-                  onPress={() => setDetailModal(null)}
-                  style={[styles.modalBtn, { backgroundColor: theme.accent }]}
-                >
-                  <Text style={{ color: '#fff' }}>Close</Text>
+                <Pressable onPress={() => setDetailModal(null)} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>                  
+                  <Text style={{ color: '#fff' }}>{t('common.close')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -400,6 +301,7 @@ export default function ClientScreen() {
     </SafeAreaView>
   );
 }
+
 
 // Styles
 const styles = StyleSheet.create({

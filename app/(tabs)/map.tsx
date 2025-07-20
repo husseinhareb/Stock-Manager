@@ -24,6 +24,7 @@ import {
   fetchClients,
   fetchSavedClients,
 } from '../../src/db';
+import { useTranslation } from 'react-i18next';
 
 interface ClientItem {
   id: number;
@@ -33,6 +34,7 @@ interface ClientItem {
 }
 
 export default function MapScreen() {
+  const { t } = useTranslation();
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
 
@@ -56,9 +58,9 @@ export default function MapScreen() {
       setSavedClients(Array.isArray(clients) ? clients : []);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert('Load failed', msg);
+      Alert.alert(t('map.loadFailedTitle'), msg);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadData(); }, [loadData]);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
@@ -77,14 +79,17 @@ export default function MapScreen() {
       await loadData();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert('Error saving pin', msg);
+      Alert.alert(t('map.errorSavingPinTitle'), msg);
     }
   };
 
   const handleViewClient = async (clientName: string) => {
     const client = savedClients.find(c => c.client === clientName);
     if (!client) {
-      Alert.alert('Client not found for', clientName);
+      Alert.alert(
+        t('map.clientNotFoundTitle'),
+        t('map.clientNotFoundMessage', { client: clientName })
+      );
       return;
     }
     try {
@@ -101,7 +106,7 @@ export default function MapScreen() {
       });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert('Error loading client', msg);
+      Alert.alert(t('map.errorLoadingClientTitle'), msg);
     }
   };
 
@@ -131,7 +136,7 @@ export default function MapScreen() {
             coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
             pinColor={theme.accent}
             title={pin.name}
-            description="Tap to view client"
+            description={t('map.markerDescription')}
             onCalloutPress={() => handleViewClient(pin.name)}
           />
         ))}
@@ -141,7 +146,7 @@ export default function MapScreen() {
       <Modal visible={selectModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>  
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>Select Client to Pin</Text>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}> {t('map.selectClientModalTitle')} </Text>
             <FlatList
               data={savedClients}
               keyExtractor={c => String(c.id)}
@@ -154,7 +159,7 @@ export default function MapScreen() {
               )}
             />
             <Pressable style={styles.modalClose} onPress={() => setSelectModalVisible(false)}>
-              <Text style={{ color: theme.accent }}>Cancel</Text>
+              <Text style={{ color: theme.accent }}>{t('common.cancel')}</Text>
             </Pressable>
           </View>
         </View>
@@ -170,13 +175,13 @@ export default function MapScreen() {
                 <View key={i} style={styles.detailRow}>
                   <Text style={[styles.cell, { color: theme.text }]}>{it.name}</Text>
                   <Text style={[styles.cell, { color: theme.text }]}>{it.quantity}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>${it.unitPrice.toFixed(2)}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>${(it.quantity * it.unitPrice).toFixed(2)}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{`$${it.unitPrice.toFixed(2)}`}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{`$${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
                 </View>
               ))}
             </ScrollView>
             <Pressable style={[styles.modalClose, { marginTop: 12 }]} onPress={() => setDetailModal(null)}>
-              <Text style={{ color: theme.accent }}>Close</Text>
+              <Text style={{ color: theme.accent }}>{t('common.close')}</Text>
             </Pressable>
           </View>
         </View>

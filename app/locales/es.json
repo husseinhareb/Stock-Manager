@@ -1,7 +1,7 @@
 {
   "screens": {
     "home": "Inicio",
-    "settings": "Ajustes",
+    "settings": "Configuración",
     "china": "China",
     "brazil": "Brasil",
     "client": "Cliente",
@@ -25,7 +25,55 @@
     "selectLanguage": "Seleccionar idioma",
     "signOut": "Cerrar sesión"
   },
+  "map": {
+    "markerDescription": "Toca para ver cliente",
+    "selectClientModalTitle": "Seleccionar cliente para fijar",
+    "loadFailedTitle": "Error al cargar",
+    "errorSavingPinTitle": "Error al guardar el pin",
+    "clientNotFoundTitle": "Cliente no encontrado",
+    "clientNotFoundMessage": "{{client}} no encontrado",
+    "errorLoadingClientTitle": "Error al cargar cliente"
+  },
+  "china": {
+    "placeholder": {
+      "name": "Nombre del artículo",
+      "quantity": "Cantidad"
+    },
+    "empty": "Aún no hay artículos. Toca + para agregar.",
+    "total": "Cantidad total",
+    "editTitle": "Editar artículo",
+    "save": "Guardar"
+  },
+  "client": {
+    "newClient": "Nuevo cliente",
+    "empty": "Aún no hay clientes. Toca + para agregar uno nuevo.",
+    "newClientName": "Ingrese el nombre del cliente",
+    "receiptTitle": "Recibo de {{name}}",
+    "sharePDF": "Compartir PDF",
+    "total": "Total: ${{total}}",
+    "available": "Disponible: {{count}}",
+    "placeholder": {
+      "name": "Ingrese el nombre del cliente"
+    },
+    "table": {
+      "item": "Artículo",
+      "qty": "Cant.",
+      "unitPrice": "Precio unitario",
+      "total": "Total",
+      "grandTotal": "Total general"
+    },
+    "alert": {
+      "loadFailed": "Error al cargar datos",
+      "enterName": "Por favor, ingrese un nombre de cliente",
+      "selectItem": "Seleccione al menos un artículo",
+      "error": "Ocurrió un error",
+      "detailLoadFailed": "Error al cargar los detalles del cliente",
+      "shareFailed": "Error al compartir el recibo"
+    }
+  },
   "common": {
-    "cancel": "Cancelar"
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar"
   }
 }

@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 import {
   initDB,
@@ -32,36 +33,30 @@ import { Colors } from '@/constants/Colors';
 export default function ChinaStockScreen() {
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
+  const { t } = useTranslation();
 
-  // Form state
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
-  // List state
   const [articles, setArticles] = useState<Article[]>([]);
   const [total, setTotal] = useState(0);
-  // Edit modal state
   const [editing, setEditing] = useState<null | Article>(null);
   const [editName, setEditName] = useState('');
   const [editQuantity, setEditQuantity] = useState('');
 
-  // Initialize DB once
   useEffect(() => {
     initDB().catch(console.warn);
   }, []);
 
-  // Load data function
   const loadData = useCallback(async () => {
     const list = await fetchArticles();
     setArticles(list);
     setTotal(await fetchTotalQuantity());
   }, []);
 
-  // Load on mount
   useEffect(() => {
     loadData().catch(console.warn);
   }, [loadData]);
 
-  // Reload whenever screen gains focus
   useFocusEffect(
     useCallback(() => {
       loadData().catch(console.warn);
@@ -128,14 +123,13 @@ export default function ChinaStockScreen() {
         edges={['top', 'left', 'right']}
         style={{ flex: 1, backgroundColor: theme.background }}
       >
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding', android: undefined })}>
-          {/* Add Form */}
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding' })}>
           <View style={styles.form}>
             <View style={[styles.inputWrapper, { borderColor: theme.border }]}>
               <MaterialIcons name="inventory" size={20} color={theme.icon} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
-                placeholder="Article name"
+                placeholder={t('china.placeholder.name')}
                 placeholderTextColor={theme.placeholder}
                 value={name}
                 onChangeText={setName}
@@ -145,7 +139,7 @@ export default function ChinaStockScreen() {
               <MaterialIcons name="pinch" size={20} color={theme.icon} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
-                placeholder="Quantity"
+                placeholder={t('china.placeholder.quantity')}
                 placeholderTextColor={theme.placeholder}
                 keyboardType="numeric"
                 value={quantity}
@@ -157,7 +151,6 @@ export default function ChinaStockScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* List */}
           <FlatList
             data={articles.filter(a => a.quantity > 0)}
             keyExtractor={item => item.id.toString()}
@@ -165,47 +158,47 @@ export default function ChinaStockScreen() {
             contentContainerStyle={styles.list}
             ListEmptyComponent={
               <Text style={[styles.emptyText, { color: theme.placeholder }]}>
-                No articles yet. Tap + to add.
+                {t('china.empty')}
               </Text>
             }
           />
 
-          {/* Footer Total */}
           <View style={[styles.footer, { backgroundColor: theme.footer }]}>
-            <Text style={[styles.totalLabel, { color: theme.text }]}>Total Quantity</Text>
+            <Text style={[styles.totalLabel, { color: theme.text }]}>{t('china.total')}</Text>
             <Text style={[styles.totalValue, { color: theme.primary }]}>{total}</Text>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* Edit Modal */}
       <Modal visible={!!editing} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>Edit Article</Text>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>
+              {t('china.editTitle')}
+            </Text>
 
             <TextInput
               style={[styles.modalInput, { borderColor: theme.border, color: theme.text }]}
               value={editName}
               onChangeText={setEditName}
-              placeholder="Name"
+              placeholder={t('china.placeholder.name')}
               placeholderTextColor={theme.placeholder}
             />
             <TextInput
               style={[styles.modalInput, { borderColor: theme.border, color: theme.text }]}
               value={editQuantity}
               onChangeText={setEditQuantity}
-              placeholder="Quantity"
+              placeholder={t('china.placeholder.quantity')}
               placeholderTextColor={theme.placeholder}
               keyboardType="numeric"
             />
 
             <View style={styles.modalActions}>
               <Pressable onPress={() => setEditing(null)} style={styles.modalBtn}>
-                <Text>Cancel</Text>
+                <Text>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable onPress={handleSaveEdit} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>
-                <Text style={{ color: '#fff' }}>Save</Text>
+                <Text style={{ color: '#fff' }}>{t('china.save')}</Text>
               </Pressable>
             </View>
           </View>

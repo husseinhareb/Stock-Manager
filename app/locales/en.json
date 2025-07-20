@@ -25,7 +25,55 @@
     "selectLanguage": "Select Language",
     "signOut": "Sign Out"
   },
+  "map": {
+    "markerDescription": "Tap to view client",
+    "selectClientModalTitle": "Select Client to Pin",
+    "loadFailedTitle": "Load failed",
+    "errorSavingPinTitle": "Error saving pin",
+    "clientNotFoundTitle": "Client not found",
+    "clientNotFoundMessage": "{{client}} not found",
+    "errorLoadingClientTitle": "Error loading client"
+  },
+  "china": {
+    "placeholder": {
+      "name": "Article name",
+      "quantity": "Quantity"
+    },
+    "empty": "No articles yet. Tap + to add.",
+    "total": "Total Quantity",
+    "editTitle": "Edit Article",
+    "save": "Save"
+  },
+  "client": {
+    "newClient": "New Client",
+    "empty": "No clients yet. Tap + to add a new client.",
+    "newClientName": "Enter Client Name",
+    "receiptTitle": "Receipt for {{name}}",
+    "sharePDF": "Share PDF",
+    "total": "Total: ${{total}}",
+    "available": "Available: {{count}}",
+    "placeholder": {
+      "name": "Enter client name"
+    },
+    "table": {
+      "item": "Item",
+      "qty": "Qty",
+      "unitPrice": "Unit Price",
+      "total": "Total",
+      "grandTotal": "Grand Total"
+    },
+    "alert": {
+      "loadFailed": "Failed to load data",
+      "enterName": "Please enter a client name",
+      "selectItem": "Please select at least one item",
+      "error": "An error occurred",
+      "detailLoadFailed": "Failed to load client details",
+      "shareFailed": "Failed to share receipt"
+    }
+  },
   "common": {
-    "cancel": "Cancel"
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close"
   }
 }
