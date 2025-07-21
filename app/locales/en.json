@@ -59,7 +59,7 @@
     "brazilStock": "Brazil Stock",
     "footer": {
       "items": "Items: {{count}}",
-      "pcs": "Pieces: {{count}}"
+      "pcs": "Items: {{count}}"
     },
     "setPrice": "Set price for {{name}}"
   },

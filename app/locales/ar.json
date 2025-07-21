@@ -58,7 +58,7 @@
         "chinaStock": "مخزون الصين",
         "brazilStock": "مخزون البرازيل",
         "footer": {
-            "items": "العناصر: {{count}}",
+            "items": "القطع: {{count}}",
             "pcs": "القطع: {{count}}"
         },
         "setPrice": "حدد السعر لـ {{name}}"

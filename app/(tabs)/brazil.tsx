@@ -200,7 +200,7 @@ export default function BrazilStockScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.select({ ios: 'padding' })}>
-        <View style={[styles.sectionContainer, { backgroundColor: theme.card }]}>
+        <View style={[styles.sectionContainer, { backgroundColor: theme.card, marginBottom: 0 }]}>
           <Text style={[styles.sectionTitle, { color: theme.primary }]}>{t('brazil.chinaStock')}</Text>
           <FlatList
             data={mainStock.filter(a => a.quantity > 0)}
@@ -276,7 +276,8 @@ const styles = StyleSheet.create({
 
   sectionContainer: {
     flex: 1,
-    margin: 12,
+    marginTop: 12,
+    marginHorizontal: 12,
     borderRadius: 16,
     overflow: 'hidden',
     elevation: 3,

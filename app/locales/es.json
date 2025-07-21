@@ -57,7 +57,7 @@
     "chinaStock": "Stock de China",
     "brazilStock": "Stock de Brasil",
     "footer": {
-      "items": "Artículos: {{count}}",
+      "items": "Piezas: {{count}}",
       "pcs": "Piezas: {{count}}"
     },
     "setPrice": "Establecer precio para {{name}}"

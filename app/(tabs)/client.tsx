@@ -356,11 +356,28 @@ export default function ClientScreen() {
                 style={[styles.modalInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
               />
               <View style={styles.modalActions}>
-                <Pressable onPress={() => { setClientModalVisible(false); setIsBuilding(true); }} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>
+                <Pressable
+                  onPress={() => {
+                    if (!clientName.trim()) {
+                      return Alert.alert(t('client.alert.enterName'));
+                    }
+                    setClientModalVisible(false);
+                    setIsBuilding(true);
+                  }}
+                  style={[styles.modalBtn, { backgroundColor: theme.accent }]}
+                >
                   <Text style={{ color: '#fff' }}>{t('common.save')}</Text>
                 </Pressable>
-                <Pressable onPress={() => setClientModalVisible(false)} style={styles.modalBtn}>
-                  <Text>{t('common.cancel')}</Text>
+                <Pressable
+                  onPress={() => setClientModalVisible(false)}
+                  style={[
+                    styles.modalBtn,
+                    { borderWidth: 1, borderColor: theme.accent, backgroundColor: 'transparent' }
+                  ]}
+                >
+                  <Text style={{ color: theme.accent, fontWeight: '600' }}>
+                    {t('common.cancel')}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -397,7 +414,7 @@ export default function ClientScreen() {
           </View>
         </Modal>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
@@ -423,11 +440,22 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   addBtn: {
-    padding: 12,
-    borderRadius: 8,
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 6,                    // Android shadow
+    zIndex: 10,                      // bring above other views on iOS
+    shadowColor: '#000',             // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
+
 
   // Empty state
   emptyContainer: {
