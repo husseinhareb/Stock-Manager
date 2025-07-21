@@ -24,6 +24,7 @@ import {
   moveToSecondary,
   setPrice,
   returnToMain,
+  getSetting,
 } from '../../src/db';
 import type { Article, Price } from '../../src/db';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -33,6 +34,29 @@ export default function BrazilStockScreen() {
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
   const { t } = useTranslation();
+
+  // --- new: currency state & symbol map ---
+  const [currencyCode, setCurrencyCode] = useState('USD');
+  const [currencySymbol, setCurrencySymbol] = useState('$');
+  const SYMBOLS: Record<string, string> = {
+    USD: '$', EUR: '€', GBP: '£',
+    JPY: '¥', CAD: 'C$', AUD: 'A$',
+    CHF: 'CHF', CNY: '¥', BRL: 'R$'
+  };
+
+  // Load currency setting when component mounts
+  useEffect(() => {
+    (async () => {
+      try {
+        const code = await getSetting('currency', 'USD');
+        setCurrencyCode(code);
+        setCurrencySymbol(SYMBOLS[code] ?? '$');
+      } catch (e) {
+        console.error('Failed to load currency setting:', e);
+      }
+    })();
+  }, []);
+
 
   const [mainStock, setMainStock] = useState<Article[]>([]);
   const [brazilStock, setBrazilStock] = useState<Article[]>([]);
@@ -152,8 +176,12 @@ export default function BrazilStockScreen() {
         <View style={[styles.badge, { backgroundColor: theme.accent }]}>
           <Text style={styles.badgeText}>{item.quantity}</Text>
         </View>
-        <Text style={[styles.cell, { color: theme.text }]}>{`$${unit.toFixed(2)}`}</Text>
-        <Text style={[styles.cell, { color: theme.text }]}>{`$${total}`}</Text>
+        <Text style={{ width: 60, textAlign: 'center', color: theme.text, fontSize: 16 }}>
+          {`${currencySymbol}${unit.toFixed(2)}`}
+        </Text>
+        <Text style={{ width: 60, textAlign: 'center', color: theme.text, fontSize: 16 }}>
+          {`${currencySymbol}${total}`}
+        </Text>
         <TextInput
           style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
           placeholder={t('brazil.placeholder.ret')}
@@ -200,7 +228,7 @@ export default function BrazilStockScreen() {
             <FontAwesome name="cubes" size={18} color={theme.accent} />
             <Text style={[styles.footerText, { color: theme.text }]}>{t('brazil.footer.pcs', { count: brazilTotalQty })}</Text>
             <FontAwesome name="dollar" size={18} color={theme.accent} style={{ marginLeft: 20 }} />
-            <Text style={[styles.footerText, { color: theme.text }]}>{`$${brazilTotalVal.toFixed(2)}`}</Text>
+            <Text style={[styles.footerText, { color: theme.text }]}>{`${currencySymbol}${brazilTotalVal.toFixed(2)}`}</Text>
           </View>
         </View>
 

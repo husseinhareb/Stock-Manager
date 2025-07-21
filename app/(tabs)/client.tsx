@@ -31,7 +31,8 @@ import {
   fetchClientItems,
   sellSecondary,
   saveClient as persistClient,
-  deleteSavedClient
+  deleteSavedClient,
+  getSetting
 } from '../../src/db';
 
 type ClientItem = {
@@ -59,6 +60,27 @@ export default function ClientScreen() {
   const { t } = useTranslation();
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
+
+  const [currencyCode, setCurrencyCode] = useState('USD');
+  const [currencySymbol, setCurrencySymbol] = useState('$');
+  const SYMBOLS: Record<string, string> = {
+    USD: '$', EUR: '€', GBP: '£',
+    JPY: '¥', CAD: 'C$', AUD: 'A$',
+    CHF: 'CHF', CNY: '¥', BRL: 'R$'
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const code = await getSetting('currency', 'USD');
+        setCurrencyCode(code);
+        setCurrencySymbol(SYMBOLS[code] ?? '$');
+      } catch (e) {
+        console.error('Failed to load currency setting:', e);
+      }
+    })();
+  }, []);
+
 
   const [brazilStock, setBrazilStock] = useState<Article[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
@@ -209,7 +231,7 @@ export default function ClientScreen() {
                     </Pressable>
                     <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{a.name}</Text>
                     <Text style={[styles.infoText, { color: theme.text }]}>{t('client.available', { count: a.quantity })}</Text>
-                    <Text style={[styles.infoText, { color: theme.text }]}>{`$${(priceMap[a.id] || 0).toFixed(2)}`}</Text>
+                    <Text style={[styles.infoText, { color: theme.text }]}>{`${currencySymbol}${(priceMap[a.id] || 0).toFixed(2)}`}</Text>
                     <TextInput
                       value={raw}
                       editable={selected}
@@ -267,7 +289,7 @@ export default function ClientScreen() {
               >
                 <FontAwesome name="user" size={24} color={theme.accent} style={styles.icon} />
                 <Text style={[styles.cardText, { color: theme.text }]}>{item.client}</Text>
-                <Text style={[styles.infoText, { color: theme.text }]}>{`$${item.total.toFixed(2)}`}</Text>
+                <Text style={[styles.infoText, { color: theme.text }]}>{`${currencySymbol}${item.total.toFixed(2)}`}</Text>
               </Pressable>
 
             )}
@@ -312,8 +334,8 @@ export default function ClientScreen() {
                   <View key={idx} style={styles.detailRow}>
                     <Text style={[styles.detailItem, { color: theme.text }]} numberOfLines={1}>{it.name}</Text>
                     <Text style={[styles.detailQty, { color: theme.text }]}>{it.quantity}</Text>
-                    <Text style={[styles.detailPrice, { color: theme.text }]}>{`$${it.unitPrice.toFixed(2)}`}</Text>
-                    <Text style={[styles.detailTotal, { color: theme.text }]}>{`$${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
+                    <Text style={[styles.detailPrice, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
+                    <Text style={[styles.detailTotal, { color: theme.text }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
                   </View>
                 ))}
               </ScrollView>

@@ -23,6 +23,7 @@ import {
   fetchClientItems,
   fetchClients,
   fetchSavedClients,
+  getSetting
 } from '../../src/db';
 import { useTranslation } from 'react-i18next';
 
@@ -37,6 +38,28 @@ export default function MapScreen() {
   const { t } = useTranslation();
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
+
+
+    const [currencyCode, setCurrencyCode] = useState('USD');
+    const [currencySymbol, setCurrencySymbol] = useState('$');
+    const SYMBOLS: Record<string, string> = {
+      USD: '$', EUR: '€', GBP: '£',
+      JPY: '¥', CAD: 'C$', AUD: 'A$',
+      CHF: 'CHF', CNY: '¥', BRL: 'R$'
+    };
+  
+    useEffect(() => {
+      (async () => {
+        try {
+          const code = await getSetting('currency', 'USD');
+          setCurrencyCode(code);
+          setCurrencySymbol(SYMBOLS[code] ?? '$');
+        } catch (e) {
+          console.error('Failed to load currency setting:', e);
+        }
+      })();
+    }, []);
+  
 
   const [clients, setClients] = useState<ClientPin[]>([]);
   const [savedClients, setSavedClients] = useState<SavedClientSummary[]>([]);
@@ -153,7 +176,7 @@ export default function MapScreen() {
               renderItem={({ item }) => (
                 <Pressable style={styles.modalItem} onPress={() => handleSelectClient(item)}>
                   <Text style={[styles.modalItemText, { color: theme.text }]}>                  
-                    {`${item.client} ($${item.total.toFixed(2)})`}
+                    {`${item.client} (${currencySymbol}${item.total.toFixed(2)})`}
                   </Text>
                 </Pressable>
               )}
@@ -175,8 +198,8 @@ export default function MapScreen() {
                 <View key={i} style={styles.detailRow}>
                   <Text style={[styles.cell, { color: theme.text }]}>{it.name}</Text>
                   <Text style={[styles.cell, { color: theme.text }]}>{it.quantity}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>{`$${it.unitPrice.toFixed(2)}`}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>{`$${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
                 </View>
               ))}
             </ScrollView>
