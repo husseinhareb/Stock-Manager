@@ -70,7 +70,8 @@
         "errorSavingPinTitle": "خطأ في حفظ العلامة",
         "clientNotFoundTitle": "العميل غير موجود",
         "clientNotFoundMessage": "{{client}} غير موجود",
-        "errorLoadingClientTitle": "خطأ في تحميل العميل"
+        "errorLoadingClientTitle": "خطأ في تحميل العميل",
+        "deletePin": "حذف الدبوس"
     },
     "china": {
         "placeholder": {

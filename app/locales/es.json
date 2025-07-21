@@ -69,7 +69,8 @@
     "errorSavingPinTitle": "Error al guardar la marca",
     "clientNotFoundTitle": "Cliente no encontrado",
     "clientNotFoundMessage": "{{client}} no encontrado",
-    "errorLoadingClientTitle": "Error al cargar el cliente"
+    "errorLoadingClientTitle": "Error al cargar el cliente",
+    "deletePin": "Eliminar marcador"
   },
   "china": {
     "placeholder": {

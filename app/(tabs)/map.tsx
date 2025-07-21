@@ -4,11 +4,9 @@ import {
   Alert,
   FlatList,
   Modal,
-  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -20,10 +18,11 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import type { ClientPin, SavedClientSummary } from '../../src/db';
 import {
   addClient,
+  deleteClient,         // ← import deleteClient
   fetchClientItems,
   fetchClients,
   fetchSavedClients,
-  getSetting
+  getSetting,
 } from '../../src/db';
 import { useTranslation } from 'react-i18next';
 
@@ -39,33 +38,32 @@ export default function MapScreen() {
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
 
+  const [currencyCode, setCurrencyCode] = useState('USD');
+  const [currencySymbol, setCurrencySymbol] = useState('$');
+  const SYMBOLS: Record<string, string> = {
+    USD: '$', EUR: '€', GBP: '£',
+    JPY: '¥', CAD: 'C$', AUD: 'A$',
+    CHF: 'CHF', CNY: '¥', BRL: 'R$'
+  };
 
-    const [currencyCode, setCurrencyCode] = useState('USD');
-    const [currencySymbol, setCurrencySymbol] = useState('$');
-    const SYMBOLS: Record<string, string> = {
-      USD: '$', EUR: '€', GBP: '£',
-      JPY: '¥', CAD: 'C$', AUD: 'A$',
-      CHF: 'CHF', CNY: '¥', BRL: 'R$'
-    };
-  
-    useEffect(() => {
-      (async () => {
-        try {
-          const code = await getSetting('currency', 'USD');
-          setCurrencyCode(code);
-          setCurrencySymbol(SYMBOLS[code] ?? '$');
-        } catch (e) {
-          console.error('Failed to load currency setting:', e);
-        }
-      })();
-    }, []);
-  
+  useEffect(() => {
+    (async () => {
+      try {
+        const code = await getSetting('currency', 'USD');
+        setCurrencyCode(code);
+        setCurrencySymbol(SYMBOLS[code] ?? '$');
+      } catch (e) {
+        console.error('Failed to load currency setting:', e);
+      }
+    })();
+  }, []);
 
   const [clients, setClients] = useState<ClientPin[]>([]);
   const [savedClients, setSavedClients] = useState<SavedClientSummary[]>([]);
   const [newPinCoord, setNewPinCoord] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectModalVisible, setSelectModalVisible] = useState(false);
   const [detailModal, setDetailModal] = useState<{
+    pinId: number;
     client: string;
     total: number;
     items: ClientItem[];
@@ -73,12 +71,12 @@ export default function MapScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const [cls, clients] = await Promise.all([
+      const [cls, sc] = await Promise.all([
         fetchClients(),
         fetchSavedClients(),
       ]);
       setClients(Array.isArray(cls) ? cls : []);
-      setSavedClients(Array.isArray(clients) ? clients : []);
+      setSavedClients(Array.isArray(sc) ? sc : []);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert(t('map.loadFailedTitle'), msg);
@@ -106,20 +104,21 @@ export default function MapScreen() {
     }
   };
 
-  const handleViewClient = async (clientName: string) => {
-    const client = savedClients.find(c => c.client === clientName);
-    if (!client) {
+  const handleViewClient = async (pin: ClientPin) => {
+    const summary = savedClients.find(s => s.client === pin.name);
+    if (!summary) {
       Alert.alert(
         t('map.clientNotFoundTitle'),
-        t('map.clientNotFoundMessage', { client: clientName })
+        t('map.clientNotFoundMessage', { client: pin.name })
       );
       return;
     }
     try {
-      const lines = await fetchClientItems(client.id);
+      const lines = await fetchClientItems(summary.id);
       setDetailModal({
-        client: client.client,
-        total: client.total,
+        pinId: pin.id,
+        client: summary.client,
+        total: summary.total,
         items: lines.map(l => ({
           id: l.article_id,
           name: l.name,
@@ -133,16 +132,32 @@ export default function MapScreen() {
     }
   };
 
-  return (
-    <SafeAreaView
-      style={[
-        styles.container,
+  const confirmDeletePin = (pinId: number) => {
+    Alert.alert(
+      t('map.confirmDeleteTitle'),
+      t('map.confirmDeleteMessage'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          backgroundColor: theme.background,
-          paddingTop: 0,
-        },
-      ]}
-    >
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteClient(pinId);
+              setDetailModal(null);
+              await loadData();
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : String(e);
+              Alert.alert(t('map.errorDeletingPinTitle'), msg);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <MapView
         style={styles.map}
         initialRegion={{
@@ -160,7 +175,7 @@ export default function MapScreen() {
             pinColor={theme.accent}
             title={pin.name}
             description={t('map.markerDescription')}
-            onCalloutPress={() => handleViewClient(pin.name)}
+            onCalloutPress={() => handleViewClient(pin)}  // open detail modal
           />
         ))}
       </MapView>
@@ -168,14 +183,16 @@ export default function MapScreen() {
       {/* Select Client Modal */}
       <Modal visible={selectModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>  
-            <Text style={[styles.modalTitle, { color: theme.primary }]}> {t('map.selectClientModalTitle')} </Text>
+          <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>
+              {t('map.selectClientModalTitle')}
+            </Text>
             <FlatList
               data={savedClients}
               keyExtractor={c => String(c.id)}
               renderItem={({ item }) => (
                 <Pressable style={styles.modalItem} onPress={() => handleSelectClient(item)}>
-                  <Text style={[styles.modalItemText, { color: theme.text }]}>                  
+                  <Text style={[styles.modalItemText, { color: theme.text }]}>
                     {`${item.client} (${currencySymbol}${item.total.toFixed(2)})`}
                   </Text>
                 </Pressable>
@@ -191,19 +208,36 @@ export default function MapScreen() {
       {/* Client Detail Modal */}
       <Modal visible={!!detailModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>  
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>{detailModal?.client}</Text>
+          <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>
+              {detailModal?.client}
+            </Text>
             <ScrollView style={styles.modalList}>
               {detailModal?.items.map((it, i) => (
                 <View key={i} style={styles.detailRow}>
                   <Text style={[styles.cell, { color: theme.text }]}>{it.name}</Text>
                   <Text style={[styles.cell, { color: theme.text }]}>{it.quantity}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>
+                    {`${currencySymbol}${it.unitPrice.toFixed(2)}`}
+                  </Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>
+                    {`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}
+                  </Text>
                 </View>
               ))}
             </ScrollView>
-            <Pressable style={[styles.modalClose, { marginTop: 12 }]} onPress={() => setDetailModal(null)}>
+            {/* Delete Pin Button */}
+            <Pressable
+              style={[styles.modalClose, { marginTop: 12 }]}
+              onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}
+            >
+              <Text style={{ color: theme.accent }}>{t('map.deletePin')}</Text>
+            </Pressable>
+            {/* Close Detail Modal */}
+            <Pressable
+              style={[styles.modalClose, { marginTop: 8 }]}
+              onPress={() => setDetailModal(null)}
+            >
               <Text style={{ color: theme.accent }}>{t('common.close')}</Text>
             </Pressable>
           </View>
@@ -215,7 +249,7 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  map:       { flex: 1 },
+  map: { flex: 1 },
 
   modalOverlay: {
     flex: 1,
@@ -235,7 +269,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '600', marginBottom: 12 },
   modalItem: { paddingVertical: 10, borderBottomWidth: 1, borderColor: '#eee' },
   modalItemText: { fontSize: 16 },
-  modalClose: { marginTop: 12, alignSelf: 'flex-end', padding: 8 },
+  modalClose: { alignSelf: 'flex-end', padding: 8 },
   modalList: { marginVertical: 8 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
   cell: { flex: 1, textAlign: 'center', fontSize: 14 },

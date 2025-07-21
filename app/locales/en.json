@@ -70,7 +70,8 @@
     "errorSavingPinTitle": "Error saving pin",
     "clientNotFoundTitle": "Client not found",
     "clientNotFoundMessage": "{{client}} not found",
-    "errorLoadingClientTitle": "Error loading client"
+    "errorLoadingClientTitle": "Error loading client",
+    "deletePin": "Delete Pin"
   },
   "china": {
     "placeholder": {

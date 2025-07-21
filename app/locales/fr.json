@@ -70,7 +70,8 @@
         "errorSavingPinTitle": "Erreur lors de l'enregistrement de l'épingle",
         "clientNotFoundTitle": "Client introuvable",
         "clientNotFoundMessage": "{{client}} introuvable",
-        "errorLoadingClientTitle": "Erreur lors du chargement du client"
+        "errorLoadingClientTitle": "Erreur lors du chargement du client",
+        "deletePin": "Supprimer l'épingle"
     },
     "china": {
         "placeholder": {

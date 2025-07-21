@@ -228,18 +228,18 @@ export default function BrazilStockScreen() {
             <FontAwesome name="cubes" size={18} color={theme.accent} />
             <Text style={[styles.footerText, { color: theme.text }]}>{t('brazil.footer.pcs', { count: brazilTotalQty })}</Text>
             <FontAwesome name="dollar" size={18} color={theme.accent} style={{ marginLeft: 20 }} />
-            <Text style={[styles.footerText, { color: theme.text }]}>{`${currencySymbol}${brazilTotalVal.toFixed(2)}`}</Text>
+            <Text style={[styles.footerText, { color: theme.text }]}>{`${brazilTotalVal.toFixed(2)}`}</Text>
           </View>
         </View>
 
         <Modal visible={priceModalVisible} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-              <Text style={[styles.modalTitle, { color: theme.primary }]}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
                 {t('brazil.setPrice', { name: priceModalArticle?.name })}
               </Text>
               <TextInput
-                style={[styles.modalInput, { borderColor: theme.border, color: theme.text }]}
+                style={[styles.modalInput, { borderColor: theme.border }]}
                 placeholder={t('brazil.placeholder.unitPrice')}
                 placeholderTextColor={theme.placeholder}
                 keyboardType="numeric"

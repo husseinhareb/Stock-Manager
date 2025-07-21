@@ -520,3 +520,4 @@ export async function getSetting(
   );
   return row?.value ?? defaultValue;
 }
+

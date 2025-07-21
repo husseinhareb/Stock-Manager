@@ -168,30 +168,75 @@ export default function ClientScreen() {
 
   const shareReceipt = async (cart: SavedClientDetail) => {
     const rows = cart.items.map(it => `
-      <tr>
-        <td>${it.name}</td>
-        <td style="text-align:center">${it.quantity}</td>
-        <td style="text-align:right">${it.unitPrice.toFixed(2)}</td>
-        <td style="text-align:right">${(it.quantity * it.unitPrice).toFixed(2)}</td>
-      </tr>
-    `).join('');
+    <tr>
+      <td style="padding: 8px; border: 1px solid #ccc;">${it.name}</td>
+      <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${it.quantity}</td>
+      <td style="padding: 8px; border: 1px solid #ccc; text-align: right;">${currencySymbol}${it.unitPrice.toFixed(2)}</td>
+      <td style="padding: 8px; border: 1px solid #ccc; text-align: right;">${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}</td>
+    </tr>
+  `).join('');
 
     const html = `
-      <h1>${t('client.receiptTitle', { name: cart.client })}</h1>
-      <table width="100%" style="border-collapse:collapse" border="1" cellpadding="5">
-        <tr>
-          <th align="left">${t('client.table.item')}</th>
-          <th>${t('client.table.qty')}</th>
-          <th>${t('client.table.unitPrice')}</th>
-          <th>${t('client.table.total')}</th>
-        </tr>
-        ${rows}
-        <tr>
-          <td colspan="3" style="text-align:right"><strong>${t('client.table.grandTotal')}</strong></td>
-          <td style="text-align:right"><strong>${cart.total.toFixed(2)}</strong></td>
-        </tr>
-      </table>
-    `;
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            padding: 24px;
+            color: #333;
+          }
+          h1 {
+            font-size: 22px;
+            margin-bottom: 24px;
+            text-align: center;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+          }
+          th {
+            background-color: #f2f2f2;
+            text-align: left;
+            padding: 8px;
+            border: 1px solid #ccc;
+          }
+          td {
+            font-size: 14px;
+          }
+          .total {
+            font-weight: bold;
+            text-align: right;
+            padding: 8px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${t('client.receiptTitle', { name: cart.client })}</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>${t('client.table.item')}</th>
+              <th>${t('client.table.qty')}</th>
+              <th>${t('client.table.unitPrice')}</th>
+              <th>${t('client.table.total')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr>
+              <td colspan="3" class="total">${t('client.table.grandTotal')}</td>
+              <td class="total">${currencySymbol}${cart.total.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
     try {
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri);
@@ -199,6 +244,7 @@ export default function ClientScreen() {
       Alert.alert(t('client.alert.shareFailed'), e.message);
     }
   };
+
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
