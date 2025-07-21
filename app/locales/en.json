@@ -19,8 +19,9 @@
     "language": "Language",
     "languageOptions": {
       "en": "English",
-      "es": "Español",
-      "fr": "Français"
+      "es": "Spanish",
+      "fr": "French",
+      "ar": "Arabic"
     },
     "selectLanguage": "Select Language",
     "signOut": "Sign Out",

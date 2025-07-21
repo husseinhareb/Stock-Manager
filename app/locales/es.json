@@ -23,57 +23,97 @@
       "fr": "Francés"
     },
     "selectLanguage": "Seleccionar idioma",
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "currency": "Moneda",
+    "selectCurrency": "Seleccionar moneda",
+    "quit": "Salir",
+    "currencyOptions": {
+      "usd": "Dólar estadounidense",
+      "eur": "Euro",
+      "gbp": "Libra esterlina",
+      "jpy": "Yen japonés",
+      "cad": "Dólar canadiense",
+      "aud": "Dólar australiano",
+      "chf": "Franco suizo",
+      "cny": "Yuan chino",
+      "brl": "Real brasileño"
+    }
+  },
+  "brazil": {
+    "alert": {
+      "loadError": "Error al cargar datos",
+      "invalidMove": "Por favor ingresa una cantidad válida para mover",
+      "moveFailed": "No se pudieron mover los artículos",
+      "invalidReturn": "Por favor ingresa una cantidad válida para devolver",
+      "returnFailed": "No se pudieron devolver los artículos",
+      "invalidPrice": "Por favor ingresa un precio válido",
+      "saveFailed": "No se pudo guardar el precio"
+    },
+    "placeholder": {
+      "qty": "Cant",
+      "ret": "Dev",
+      "unitPrice": "Precio unitario"
+    },
+    "chinaStock": "Stock de China",
+    "brazilStock": "Stock de Brasil",
+    "footer": {
+      "items": "Artículos: {{count}}",
+      "pcs": "Piezas: {{count}}"
+    },
+    "setPrice": "Establecer precio para {{name}}"
   },
   "map": {
-    "markerDescription": "Toca para ver cliente",
-    "selectClientModalTitle": "Seleccionar cliente para fijar",
+    "markerDescription": "Toca para ver el cliente",
+    "selectClientModalTitle": "Seleccionar cliente para marcar",
     "loadFailedTitle": "Error al cargar",
-    "errorSavingPinTitle": "Error al guardar el pin",
+    "errorSavingPinTitle": "Error al guardar la marca",
     "clientNotFoundTitle": "Cliente no encontrado",
     "clientNotFoundMessage": "{{client}} no encontrado",
-    "errorLoadingClientTitle": "Error al cargar cliente"
+    "errorLoadingClientTitle": "Error al cargar el cliente"
   },
   "china": {
     "placeholder": {
       "name": "Nombre del artículo",
       "quantity": "Cantidad"
     },
-    "empty": "Aún no hay artículos. Toca + para agregar.",
+    "empty": "No hay artículos aún. Toca + para agregar.",
     "total": "Cantidad total",
     "editTitle": "Editar artículo",
     "save": "Guardar"
   },
   "client": {
     "newClient": "Nuevo cliente",
-    "empty": "Aún no hay clientes. Toca + para agregar uno nuevo.",
-    "newClientName": "Ingrese el nombre del cliente",
+    "empty": "No hay clientes aún. Toca + para agregar uno nuevo.",
+    "newClientName": "Ingresar nombre del cliente",
     "receiptTitle": "Recibo de {{name}}",
     "sharePDF": "Compartir PDF",
     "total": "Total: ${{total}}",
     "available": "Disponible: {{count}}",
     "placeholder": {
-      "name": "Ingrese el nombre del cliente"
+      "name": "Ingresar nombre del cliente"
     },
     "table": {
       "item": "Artículo",
-      "qty": "Cant.",
+      "qty": "Cantidad",
       "unitPrice": "Precio unitario",
       "total": "Total",
-      "grandTotal": "Total general"
+      "grandTotal": "Gran total"
     },
     "alert": {
+      "confirmDeleteTitle": "¿Eliminar cliente?",
+      "confirmDeleteMessage": "Esto eliminará permanentemente este cliente y su recibo. ¿Continuar?",
       "loadFailed": "Error al cargar datos",
-      "enterName": "Por favor, ingrese un nombre de cliente",
-      "selectItem": "Seleccione al menos un artículo",
+      "enterName": "Por favor ingresa un nombre de cliente",
+      "selectItem": "Por favor selecciona al menos un artículo",
       "error": "Ocurrió un error",
-      "detailLoadFailed": "Error al cargar los detalles del cliente",
+      "detailLoadFailed": "Error al cargar detalles del cliente",
       "shareFailed": "Error al compartir el recibo"
     }
   },
   "common": {
     "save": "Guardar",
     "cancel": "Cancelar",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "delete": "Eliminar"
   }
 }

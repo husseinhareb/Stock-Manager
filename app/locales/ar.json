@@ -1,0 +1,120 @@
+{
+    "screens": {
+        "home": "الرئيسية",
+        "settings": "الإعدادات",
+        "china": "الصين",
+        "brazil": "البرازيل",
+        "client": "العميل",
+        "map": "الخريطة"
+    },
+    "settings": {
+        "notifications": "الإشعارات",
+        "theme": "المظهر",
+        "themeOptions": {
+            "system": "النظام",
+            "light": "فاتح",
+            "dark": "داكن"
+        },
+        "selectTheme": "اختر المظهر",
+        "language": "اللغة",
+        "languageOptions": {
+            "en": "الإنجليزية",
+            "es": "الإسبانية",
+            "fr": "الفرنسية",
+            "ar": "العربية"
+        },
+        "selectLanguage": "اختر اللغة",
+        "signOut": "تسجيل الخروج",
+        "currency": "العملة",
+        "selectCurrency": "اختر العملة",
+        "quit": "خروج",
+        "currencyOptions": {
+            "usd": "الدولار الأمريكي",
+            "eur": "اليورو",
+            "gbp": "الجنيه الإسترليني",
+            "jpy": "الين الياباني",
+            "cad": "الدولار الكندي",
+            "aud": "الدولار الأسترالي",
+            "chf": "الفرنك السويسري",
+            "cny": "اليوان الصيني",
+            "brl": "الريال البرازيلي"
+        }
+    },
+    "brazil": {
+        "alert": {
+            "loadError": "فشل في تحميل البيانات",
+            "invalidMove": "الرجاء إدخال كمية صالحة للنقل",
+            "moveFailed": "فشل في نقل العناصر",
+            "invalidReturn": "الرجاء إدخال كمية صالحة للإرجاع",
+            "returnFailed": "فشل في إرجاع العناصر",
+            "invalidPrice": "الرجاء إدخال سعر صالح",
+            "saveFailed": "فشل في حفظ السعر"
+        },
+        "placeholder": {
+            "qty": "الكمية",
+            "ret": "إرجاع",
+            "unitPrice": "سعر الوحدة"
+        },
+        "chinaStock": "مخزون الصين",
+        "brazilStock": "مخزون البرازيل",
+        "footer": {
+            "items": "العناصر: {{count}}",
+            "pcs": "القطع: {{count}}"
+        },
+        "setPrice": "حدد السعر لـ {{name}}"
+    },
+    "map": {
+        "markerDescription": "انقر لعرض العميل",
+        "selectClientModalTitle": "اختر عميلًا لتثبيته",
+        "loadFailedTitle": "فشل التحميل",
+        "errorSavingPinTitle": "خطأ في حفظ العلامة",
+        "clientNotFoundTitle": "العميل غير موجود",
+        "clientNotFoundMessage": "{{client}} غير موجود",
+        "errorLoadingClientTitle": "خطأ في تحميل العميل"
+    },
+    "china": {
+        "placeholder": {
+            "name": "اسم الصنف",
+            "quantity": "الكمية"
+        },
+        "empty": "لا توجد أصناف بعد. انقر + للإضافة.",
+        "total": "إجمالي الكمية",
+        "editTitle": "تعديل الصنف",
+        "save": "حفظ"
+    },
+    "client": {
+        "newClient": "عميل جديد",
+        "empty": "لا يوجد عملاء بعد. انقر + لإضافة عميل جديد.",
+        "newClientName": "أدخل اسم العميل",
+        "receiptTitle": "إيصال {{name}}",
+        "sharePDF": "مشاركة PDF",
+        "total": "الإجمالي: ${{total}}",
+        "available": "المتاح: {{count}}",
+        "placeholder": {
+            "name": "أدخل اسم العميل"
+        },
+        "table": {
+            "item": "العنصر",
+            "qty": "الكمية",
+            "unitPrice": "سعر الوحدة",
+            "total": "الإجمالي",
+            "grandTotal": "الإجمالي الكلي"
+        },
+        "alert": {
+            "confirmDeleteTitle": "حذف العميل؟",
+            "confirmDeleteMessage": "سيؤدي ذلك إلى حذف هذا العميل وإيصاله نهائيًا. هل تريد المتابعة؟",
+            "loadFailed": "فشل في تحميل البيانات",
+            "enterName": "الرجاء إدخال اسم العميل",
+            "selectItem": "الرجاء اختيار عنصر واحد على الأقل",
+            "error": "حدث خطأ",
+            "detailLoadFailed": "فشل في تحميل تفاصيل العميل",
+            "shareFailed": "فشل في مشاركة الإيصال"
+        }
+    },
+    "common": {
+        "save": "حفظ",
+        "cancel": "إلغاء",
+        "close": "إغلاق",
+        "delete": "حذف"
+    }
+}

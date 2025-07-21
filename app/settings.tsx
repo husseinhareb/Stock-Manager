@@ -20,6 +20,8 @@ const LANGS = [
   { code: 'en', labelKey: 'settings.languageOptions.en' },
   { code: 'es', labelKey: 'settings.languageOptions.es' },
   { code: 'fr', labelKey: 'settings.languageOptions.fr' },
+  { code: 'ar', labelKey: 'settings.languageOptions.ar' },
+
 ];
 
 const THEMES: Array<'system' | 'light' | 'dark'> = [
@@ -67,7 +69,7 @@ export default function SettingsScreen() {
 
         setThemePref(theme as 'system' | 'light' | 'dark');
         setSelectedCurrency(currency);
-        
+
         // Set language if different from current
         if (language !== i18n.language) {
           i18n.changeLanguage(language);

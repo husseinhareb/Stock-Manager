@@ -1,0 +1,120 @@
+{
+    "screens": {
+        "home": "Accueil",
+        "settings": "Paramètres",
+        "china": "Chine",
+        "brazil": "Brésil",
+        "client": "Client",
+        "map": "Carte"
+    },
+    "settings": {
+        "notifications": "Notifications",
+        "theme": "Thème",
+        "themeOptions": {
+            "system": "Système",
+            "light": "Clair",
+            "dark": "Sombre"
+        },
+        "selectTheme": "Sélectionner le thème",
+        "language": "Langue",
+        "languageOptions": {
+            "en": "Anglais",
+            "es": "Espagnol",
+            "fr": "Français",
+            "ar": "Arabe"
+        },
+        "selectLanguage": "Sélectionner la langue",
+        "signOut": "Se déconnecter",
+        "currency": "Devise",
+        "selectCurrency": "Sélectionner la devise",
+        "quit": "Quitter",
+        "currencyOptions": {
+            "usd": "Dollar américain",
+            "eur": "Euro",
+            "gbp": "Livre sterling",
+            "jpy": "Yen japonais",
+            "cad": "Dollar canadien",
+            "aud": "Dollar australien",
+            "chf": "Franc suisse",
+            "cny": "Yuan chinois",
+            "brl": "Real brésilien"
+        }
+    },
+    "brazil": {
+        "alert": {
+            "loadError": "Échec du chargement des données",
+            "invalidMove": "Veuillez entrer une quantité valide à déplacer",
+            "moveFailed": "Échec du déplacement des articles",
+            "invalidReturn": "Veuillez entrer une quantité valide à retourner",
+            "returnFailed": "Échec du retour des articles",
+            "invalidPrice": "Veuillez entrer un prix valide",
+            "saveFailed": "Échec de l'enregistrement du prix"
+        },
+        "placeholder": {
+            "qty": "Qté",
+            "ret": "Ret",
+            "unitPrice": "Prix unitaire"
+        },
+        "chinaStock": "Stock de Chine",
+        "brazilStock": "Stock du Brésil",
+        "footer": {
+            "items": "Articles : {{count}}",
+            "pcs": "Pièces : {{count}}"
+        },
+        "setPrice": "Définir le prix pour {{name}}"
+    },
+    "map": {
+        "markerDescription": "Appuyez pour voir le client",
+        "selectClientModalTitle": "Sélectionnez un client à épingler",
+        "loadFailedTitle": "Échec du chargement",
+        "errorSavingPinTitle": "Erreur lors de l'enregistrement de l'épingle",
+        "clientNotFoundTitle": "Client introuvable",
+        "clientNotFoundMessage": "{{client}} introuvable",
+        "errorLoadingClientTitle": "Erreur lors du chargement du client"
+    },
+    "china": {
+        "placeholder": {
+            "name": "Nom de l'article",
+            "quantity": "Quantité"
+        },
+        "empty": "Aucun article pour le moment. Appuyez sur + pour en ajouter.",
+        "total": "Quantité totale",
+        "editTitle": "Modifier l'article",
+        "save": "Enregistrer"
+    },
+    "client": {
+        "newClient": "Nouveau client",
+        "empty": "Aucun client pour le moment. Appuyez sur + pour en ajouter un nouveau.",
+        "newClientName": "Saisir le nom du client",
+        "receiptTitle": "Reçu de {{name}}",
+        "sharePDF": "Partager le PDF",
+        "total": "Total : ${{total}}",
+        "available": "Disponible : {{count}}",
+        "placeholder": {
+            "name": "Saisir le nom du client"
+        },
+        "table": {
+            "item": "Article",
+            "qty": "Qté",
+            "unitPrice": "Prix unitaire",
+            "total": "Total",
+            "grandTotal": "Total général"
+        },
+        "alert": {
+            "confirmDeleteTitle": "Supprimer le client ?",
+            "confirmDeleteMessage": "Ceci supprimera définitivement ce client et son reçu. Continuer ?",
+            "loadFailed": "Échec du chargement des données",
+            "enterName": "Veuillez saisir un nom de client",
+            "selectItem": "Veuillez sélectionner au moins un article",
+            "error": "Une erreur est survenue",
+            "detailLoadFailed": "Échec du chargement des détails du client",
+            "shareFailed": "Échec du partage du reçu"
+        }
+    },
+    "common": {
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "close": "Fermer",
+        "delete": "Supprimer"
+    }
+}
