@@ -64,6 +64,7 @@ export default function ClientScreen() {
 
   const [currencyCode, setCurrencyCode] = useState('USD');
   const [currencySymbol, setCurrencySymbol] = useState('$');
+
   const SYMBOLS: Record<string, string> = {
     USD: '$', EUR: '€', GBP: '£',
     JPY: '¥', CAD: 'C$', AUD: 'A$',
@@ -263,7 +264,7 @@ export default function ClientScreen() {
 
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {!isBuilding && (
           <TouchableOpacity
@@ -310,18 +311,35 @@ export default function ClientScreen() {
                 );
               })}
             </ScrollView>
-            <View style={[styles.builderFooter, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Text style={[styles.totalText, { color: theme.text }]}>{t('client.total', { total: currentTotal.toFixed(2) })}</Text>
+            <View
+              style={[
+                styles.builderFooter,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  bottom: 0, 
+                },
+              ]}
+            >
+              <Text style={[styles.totalText, { color: theme.text }]}>
+                {t('client.total', { total: currentTotal.toFixed(2) })}
+              </Text>
               <View style={styles.footerButtons}>
                 <Pressable onPress={saveClient} style={[styles.actionBtn, { backgroundColor: theme.accent }]}>
                   <FontAwesome name="save" size={18} color="#fff" />
                   <Text style={styles.actionBtnText}>{t('common.save')}</Text>
                 </Pressable>
-                <Pressable onPress={() => shareReceipt({ client: clientName, total: currentTotal, items: currentItems })} style={[styles.actionBtn, { backgroundColor: theme.accent }]}>
+                <Pressable
+                  onPress={() =>
+                    shareReceipt({ client: clientName, total: currentTotal, items: currentItems })
+                  }
+                  style={[styles.actionBtn, { backgroundColor: theme.accent }]}
+                >
                   <Text style={styles.actionBtnText}>{t('client.sharePDF')}</Text>
                 </Pressable>
               </View>
             </View>
+
           </>
         ) : (
           <FlatList
@@ -532,15 +550,22 @@ const styles = StyleSheet.create({
   itemList: { flex: 1, marginTop: 8 },
 
   builderFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    /* bottom is now injected inline */
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderTopWidth: 1,
-    marginHorizontal: 16,
   },
   totalText: { fontSize: 18, fontWeight: 'bold' },
-  footerButtons: { flexDirection: 'row' },
+  footerButtons: {
+    flexDirection: 'row'
+
+  },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
