@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -81,7 +82,6 @@ export default function ClientScreen() {
     })();
   }, []);
 
-
   const [brazilStock, setBrazilStock] = useState<Article[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
   const [savedClients, setSavedClients] = useState<SavedSummary[]>([]);
@@ -90,6 +90,21 @@ export default function ClientScreen() {
   const [isBuilding, setIsBuilding] = useState(false);
   const [clientModalVisible, setClientModalVisible] = useState(false);
   const [detailModal, setDetailModal] = useState<SavedClientDetail | null>(null);
+
+  // Handle Android hardware back button when building to cancel
+  useEffect(() => {
+    if (Platform.OS === 'android' && isBuilding) {
+      const onBackPress = () => {
+        setIsBuilding(false);
+        setClientName('');
+        setSelection({});
+        return true; // Prevent default behavior
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+
+    }
+  }, [isBuilding]);
 
   const loadData = useCallback(async () => {
     try {
@@ -160,7 +175,7 @@ export default function ClientScreen() {
   const handleDelete = async (id: number) => {
     try {
       await deleteSavedClient(id);
-      loadData(); // refresh the list
+      loadData();
     } catch (e: any) {
       Alert.alert(t('client.alert.error'), e.message);
     }
@@ -168,13 +183,14 @@ export default function ClientScreen() {
 
   const shareReceipt = async (cart: SavedClientDetail) => {
     const rows = cart.items.map(it => `
-    <tr>
-      <td style="padding: 8px; border: 1px solid #ccc;">${it.name}</td>
-      <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${it.quantity}</td>
-      <td style="padding: 8px; border: 1px solid #ccc; text-align: right;">${currencySymbol}${it.unitPrice.toFixed(2)}</td>
-      <td style="padding: 8px; border: 1px solid #ccc; text-align: right;">${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}</td>
-    </tr>
-  `).join('');
+      <tr>
+        <td style=\"padding: 8px; border: 1px solid #ccc;\">${it.name}</td>
+        <td style=\"padding: 8px; border: 1px solid #ccc; text-align: center;\">${it.quantity}</td>
+        <td style=\"padding: 8px; border: 1px solid #ccc; text-align: right;\">${currencySymbol}${it.unitPrice.toFixed(2)}</td>
+        <td style=\"padding: 8px; border: 1px solid #ccc; text-align: right;\">${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
 
     const html = `
     <html>
@@ -249,11 +265,14 @@ export default function ClientScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <TouchableOpacity
-          onPress={() => setClientModalVisible(true)}
-          style={[styles.addBtn, { backgroundColor: theme.accent }]}>
-          <FontAwesome name="plus" size={20} color="#fff" />
-        </TouchableOpacity>
+        {!isBuilding && (
+          <TouchableOpacity
+            onPress={() => setClientModalVisible(true)}
+            style={[styles.addBtn, { backgroundColor: theme.accent }]}>
+            <FontAwesome name="plus" size={20} color="#fff" />
+          </TouchableOpacity>
+        )}
+
 
 
         {isBuilding ? (
@@ -343,7 +362,7 @@ export default function ClientScreen() {
         )}
 
         {/* Name Modal */}
-        <Modal visible={clientModalVisible} transparent animationType="fade">
+        <Modal visible={clientModalVisible} transparent animationType="fade" onRequestClose={() => { setClientModalVisible(false) }}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
               <FontAwesome name="user-circle" size={32} color={theme.accent} style={styles.modalIcon} />
@@ -385,12 +404,14 @@ export default function ClientScreen() {
         </Modal>
 
         {/* Detail Modal */}
-        <Modal visible={!!detailModal} transparent animationType="slide">
+        <Modal visible={!!detailModal} transparent animationType="slide" onRequestClose={() => { setDetailModal(null) }}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
               <View style={styles.detailHeader}>
                 <FontAwesome name="book" size={28} color={theme.accent} />
-                <Text style={[styles.modalTitle, { color: theme.text }]}>{detailModal?.client}</Text>
+                <Text style={[styles.detailHeaderTitle, { color: theme.text }]}>
+                  {detailModal?.client}
+                </Text>
               </View>
               <ScrollView style={styles.detailList}>
                 {detailModal?.items.map((it, idx) => (
@@ -580,6 +601,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  detailHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   detailList: { maxHeight: 240, marginBottom: 16 },
   detailRow: {

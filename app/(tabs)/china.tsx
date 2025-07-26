@@ -170,7 +170,7 @@ export default function ChinaStockScreen() {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      <Modal visible={!!editing} transparent animationType="slide">
+      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => {setEditing(null)}}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
             <Text style={[styles.modalTitle, { color: theme.primary }]}>
@@ -195,7 +195,7 @@ export default function ChinaStockScreen() {
 
             <View style={styles.modalActions}>
               <Pressable onPress={() => setEditing(null)} style={styles.modalBtn}>
-                <Text>{t('common.cancel')}</Text>
+                <Text style={{ color: theme.accent, fontWeight: '600' }}>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable onPress={handleSaveEdit} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>
                 <Text style={{ color: '#fff' }}>{t('china.save')}</Text>

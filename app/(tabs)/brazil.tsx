@@ -232,7 +232,7 @@ export default function BrazilStockScreen() {
           </View>
         </View>
 
-        <Modal visible={priceModalVisible} transparent animationType="slide">
+        <Modal visible={priceModalVisible} transparent animationType="slide" onRequestClose={() => {setPriceModalVisible(false)}}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>
