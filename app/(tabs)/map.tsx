@@ -181,32 +181,56 @@ export default function MapScreen() {
       </MapView>
 
       {/* Select Client Modal */}
-      <Modal visible={selectModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>
-              {t('map.selectClientModalTitle')}
+<Modal
+  visible={selectModalVisible}
+  transparent
+  animationType="slide"
+  onRequestClose={() => setSelectModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+      <Text style={[styles.modalTitle, { color: theme.primary }]}>
+        {t('map.selectClientModalTitle')}
+      </Text>
+      <FlatList
+        data={savedClients}
+        keyExtractor={c => String(c.id)}
+        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+        contentContainerStyle={{ paddingVertical: 8 }}
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => handleSelectClient(item)}
+            style={({ pressed }) => [
+              styles.modalItem,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+                opacity: pressed ? 0.6 : 1,
+              },
+            ]}
+          >
+            <Text style={[styles.modalItemText, { color: theme.text }]}>
+              {`${item.client} -${currencySymbol}${item.total.toFixed(2)}`}
             </Text>
-            <FlatList
-              data={savedClients}
-              keyExtractor={c => String(c.id)}
-              renderItem={({ item }) => (
-                <Pressable style={styles.modalItem} onPress={() => handleSelectClient(item)}>
-                  <Text style={[styles.modalItemText, { color: theme.text }]}>
-                    {`${item.client} (${currencySymbol}${item.total.toFixed(2)})`}
-                  </Text>
-                </Pressable>
-              )}
-            />
-            <Pressable style={styles.modalClose} onPress={() => setSelectModalVisible(false)}>
-              <Text style={{ color: theme.accent }}>{t('common.cancel')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+          </Pressable>
+        )}
+      />
+      <Pressable
+        style={styles.modalClose}
+        onPress={() => setSelectModalVisible(false)}
+      >
+        <Text style={{ color: theme.accent, fontWeight: '600' }}>
+          {t('common.cancel')}
+        </Text>
+      </Pressable>
+    </View>
+  </View>
+</Modal>
+
+
 
       {/* Client Detail Modal */}
-      <Modal visible={!!detailModal} transparent animationType="fade">
+      <Modal visible={!!detailModal} transparent animationType="fade" onRequestClose={() => { setDetailModal(null) }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
             <Text style={[styles.modalTitle, { color: theme.primary }]}>
@@ -260,16 +284,32 @@ const styles = StyleSheet.create({
   modal: {
     width: '85%',
     maxHeight: '70%',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 16,
     elevation: 6,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
   },
-  modalTitle: { fontSize: 20, fontWeight: '600', marginBottom: 12 },
-  modalItem: { paddingVertical: 10, borderBottomWidth: 1, borderColor: '#eee' },
-  modalItemText: { fontSize: 16 },
-  modalClose: { alignSelf: 'flex-end', padding: 8 },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#fff',   // or theme.background
+  },
+  modalItemText: {
+    fontSize: 16,
+  },
+  modalClose: {
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 12,
+  },
   modalList: { marginVertical: 8 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
   cell: { flex: 1, textAlign: 'center', fontSize: 14 },
