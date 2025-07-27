@@ -21,7 +21,7 @@ import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-
+import * as FileSystem from 'expo-file-system';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Article, Price } from '../../src/db';
@@ -255,8 +255,34 @@ export default function ClientScreen() {
   `;
 
     try {
+      // 2. Generate the PDF (temporary file)
       const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri);
+
+      // 3. Build a safe filename from the client name
+      //    Replace spaces/special chars as needed:
+      const safeName = cart.client
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_');
+      const newFilename = `${safeName}.pdf`;
+
+      // 4. Define a new URI in the app's document directory
+      const newUri = `${FileSystem.documentDirectory}${newFilename}`;
+
+      // 5. If a file with that name already exists, delete it
+      const info = await FileSystem.getInfoAsync(newUri);
+      if (info.exists) {
+        await FileSystem.deleteAsync(newUri, { idempotent: true });
+      }
+
+      // 6. Move (rename) the temp PDF to the new URI
+      await FileSystem.moveAsync({
+        from: uri,
+        to: newUri,
+      });
+
+      // 7. Share the renamed PDF
+      await Sharing.shareAsync(newUri);
     } catch (e: any) {
       Alert.alert(t('client.alert.shareFailed'), e.message);
     }
@@ -317,7 +343,7 @@ export default function ClientScreen() {
                 {
                   backgroundColor: theme.card,
                   borderColor: theme.border,
-                  bottom: 0, 
+                  bottom: 0,
                 },
               ]}
             >
