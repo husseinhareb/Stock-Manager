@@ -11,8 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-
+import MapView, { UrlTile, Marker } from 'react-native-maps';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { ClientPin, SavedClientSummary } from '../../src/db';
@@ -168,6 +167,13 @@ export default function MapScreen() {
         }}
         onLongPress={handleMapLongPress}
       >
+        {/* Free OSM tiles—no API key needed */}
+        <UrlTile
+          urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19}
+          flipY={false}
+        />
+
         {clients.map(pin => (
           <Marker
             key={pin.id}
@@ -175,57 +181,58 @@ export default function MapScreen() {
             pinColor={theme.accent}
             title={pin.name}
             description={t('map.markerDescription')}
-            onCalloutPress={() => handleViewClient(pin)}  // open detail modal
+            onCalloutPress={() => handleViewClient(pin)}
           />
         ))}
       </MapView>
 
+
       {/* Select Client Modal */}
-<Modal
-  visible={selectModalVisible}
-  transparent
-  animationType="slide"
-  onRequestClose={() => setSelectModalVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-      <Text style={[styles.modalTitle, { color: theme.primary }]}>
-        {t('map.selectClientModalTitle')}
-      </Text>
-      <FlatList
-        data={savedClients}
-        keyExtractor={c => String(c.id)}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        contentContainerStyle={{ paddingVertical: 8 }}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => handleSelectClient(item)}
-            style={({ pressed }) => [
-              styles.modalItem,
-              {
-                backgroundColor: theme.card,
-                borderColor: theme.border,
-                opacity: pressed ? 0.6 : 1,
-              },
-            ]}
-          >
-            <Text style={[styles.modalItemText, { color: theme.text }]}>
-              {`${item.client} -${currencySymbol}${item.total.toFixed(2)}`}
-            </Text>
-          </Pressable>
-        )}
-      />
-      <Pressable
-        style={styles.modalClose}
-        onPress={() => setSelectModalVisible(false)}
+      <Modal
+        visible={selectModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectModalVisible(false)}
       >
-        <Text style={{ color: theme.accent, fontWeight: '600' }}>
-          {t('common.cancel')}
-        </Text>
-      </Pressable>
-    </View>
-  </View>
-</Modal>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>
+              {t('map.selectClientModalTitle')}
+            </Text>
+            <FlatList
+              data={savedClients}
+              keyExtractor={c => String(c.id)}
+              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              contentContainerStyle={{ paddingVertical: 8 }}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => handleSelectClient(item)}
+                  style={({ pressed }) => [
+                    styles.modalItem,
+                    {
+                      backgroundColor: theme.card,
+                      borderColor: theme.border,
+                      opacity: pressed ? 0.6 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.modalItemText, { color: theme.text }]}>
+                    {`${item.client} -${currencySymbol}${item.total.toFixed(2)}`}
+                  </Text>
+                </Pressable>
+              )}
+            />
+            <Pressable
+              style={styles.modalClose}
+              onPress={() => setSelectModalVisible(false)}
+            >
+              <Text style={{ color: theme.accent, fontWeight: '600' }}>
+                {t('common.cancel')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
 
 
