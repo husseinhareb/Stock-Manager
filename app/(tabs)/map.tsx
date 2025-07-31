@@ -17,7 +17,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import type { ClientPin, SavedClientSummary } from '../../src/db';
 import {
   addClient,
-  deleteClient,         // ← import deleteClient
+  deleteClient,
   fetchClientItems,
   fetchClients,
   fetchSavedClients,
@@ -37,12 +37,13 @@ export default function MapScreen() {
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
 
+  // --- Currency setting ---
   const [currencyCode, setCurrencyCode] = useState('USD');
   const [currencySymbol, setCurrencySymbol] = useState('$');
   const SYMBOLS: Record<string, string> = {
     USD: '$', EUR: '€', GBP: '£',
     JPY: '¥', CAD: 'C$', AUD: 'A$',
-    CHF: 'CHF', CNY: '¥', BRL: 'R$'
+    CHF: 'CHF', CNY: '¥', BRL: 'R$',
   };
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function MapScreen() {
     })();
   }, []);
 
+  // --- Data state ---
   const [clients, setClients] = useState<ClientPin[]>([]);
   const [savedClients, setSavedClients] = useState<SavedClientSummary[]>([]);
   const [newPinCoord, setNewPinCoord] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -70,10 +72,7 @@ export default function MapScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const [cls, sc] = await Promise.all([
-        fetchClients(),
-        fetchSavedClients(),
-      ]);
+      const [cls, sc] = await Promise.all([fetchClients(), fetchSavedClients()]);
       setClients(Array.isArray(cls) ? cls : []);
       setSavedClients(Array.isArray(sc) ? sc : []);
     } catch (e: unknown) {
@@ -85,6 +84,7 @@ export default function MapScreen() {
   useEffect(() => { loadData(); }, [loadData]);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
+  // --- Handlers ---
   const handleMapLongPress = (e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
     setNewPinCoord(e.nativeEvent.coordinate);
     setSelectModalVisible(true);
@@ -167,10 +167,10 @@ export default function MapScreen() {
         }}
         onLongPress={handleMapLongPress}
       >
-        {/* Free OSM tiles—no API key needed */}
+        {/* Wikimedia-hosted OSM tiles — no API key required */}
         <UrlTile
-          urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
+          urlTemplate="https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png"
+          maximumZ={18}
           flipY={false}
         />
 
@@ -186,6 +186,12 @@ export default function MapScreen() {
         ))}
       </MapView>
 
+      {/* Attribution overlay */}
+      <View style={[styles.attributionContainer, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
+        <Text style={styles.attributionText}>
+          © OpenStreetMap contributors — tiles by Wikimedia
+        </Text>
+      </View>
 
       {/* Select Client Modal */}
       <Modal
@@ -217,7 +223,7 @@ export default function MapScreen() {
                   ]}
                 >
                   <Text style={[styles.modalItemText, { color: theme.text }]}>
-                    {`${item.client} -${currencySymbol}${item.total.toFixed(2)}`}
+                    {`${item.client} – ${currencySymbol}${item.total.toFixed(2)}`}
                   </Text>
                 </Pressable>
               )}
@@ -234,10 +240,13 @@ export default function MapScreen() {
         </View>
       </Modal>
 
-
-
       {/* Client Detail Modal */}
-      <Modal visible={!!detailModal} transparent animationType="fade" onRequestClose={() => { setDetailModal(null) }}>
+      <Modal
+        visible={!!detailModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDetailModal(null)}
+      >
         <View style={styles.modalOverlay}>
           <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
             <Text style={[styles.modalTitle, { color: theme.primary }]}>
@@ -257,14 +266,12 @@ export default function MapScreen() {
                 </View>
               ))}
             </ScrollView>
-            {/* Delete Pin Button */}
             <Pressable
               style={[styles.modalClose, { marginTop: 12 }]}
               onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}
             >
               <Text style={{ color: theme.accent }}>{t('map.deletePin')}</Text>
             </Pressable>
-            {/* Close Detail Modal */}
             <Pressable
               style={[styles.modalClose, { marginTop: 8 }]}
               onPress={() => setDetailModal(null)}
@@ -281,6 +288,19 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+
+  attributionContainer: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  attributionText: {
+    fontSize: 10,
+    color: '#333',
+  },
 
   modalOverlay: {
     flex: 1,
@@ -306,7 +326,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#fff',   // or theme.background
+    borderWidth: 1,
   },
   modalItemText: {
     fontSize: 16,
@@ -317,7 +337,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginTop: 12,
   },
-  modalList: { marginVertical: 8 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
-  cell: { flex: 1, textAlign: 'center', fontSize: 14 },
+  modalList: {
+    marginVertical: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 4,
+  },
+  cell: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 14,
+  },
 });
