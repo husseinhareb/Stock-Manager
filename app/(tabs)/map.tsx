@@ -1,5 +1,6 @@
+// app/(tabs)/map.tsx
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -11,7 +12,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapView, { UrlTile, Marker } from 'react-native-maps';
+import {
+  MapView,
+  Camera,
+  RasterSource,
+  RasterLayer,
+  PointAnnotation,
+} from '@maplibre/maplibre-react-native';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { ClientPin, SavedClientSummary } from '../../src/db';
@@ -24,6 +31,15 @@ import {
   getSetting,
 } from '../../src/db';
 import { useTranslation } from 'react-i18next';
+
+const BLANK_STYLE = {
+  version: 8,
+  name: 'blank',
+  sources: {},
+  layers: [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#eaeaea' } },
+  ],
+} as const;
 
 interface ClientItem {
   id: number;
@@ -85,8 +101,11 @@ export default function MapScreen() {
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   // --- Handlers ---
-  const handleMapLongPress = (e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
-    setNewPinCoord(e.nativeEvent.coordinate);
+  const handleMapLongPress = (e: any) => {
+    const coords = e?.geometry?.coordinates || e?.coordinates; // [lng, lat]
+    if (!coords || coords.length < 2) return;
+    const [longitude, latitude] = coords;
+    setNewPinCoord({ latitude, longitude });
     setSelectModalVisible(true);
   };
 
@@ -155,38 +174,45 @@ export default function MapScreen() {
     );
   };
 
+  const annotations = useMemo(
+    () =>
+      clients.map(pin => (
+        <PointAnnotation
+          key={`pin-${pin.id}`}
+          id={`pin-${pin.id}`}
+          coordinate={[pin.longitude, pin.latitude]}
+          onSelected={() => handleViewClient(pin)}
+        >
+          <View style={[styles.markerDot, { backgroundColor: theme.accent, borderColor: '#fff' }]} />
+        </PointAnnotation>
+      )),
+    [clients, theme.accent]
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <MapView
-        style={styles.map}
-        initialRegion={{
-          latitude: -14.2350,
-          longitude: -51.9253,
-          latitudeDelta: 20,
-          longitudeDelta: 20,
-        }}
-        onLongPress={handleMapLongPress}
-      >
-        {/* Wikimedia-hosted OSM tiles — no API key required */}
-        <UrlTile
-          urlTemplate="https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png"
-          maximumZ={18}
-          flipY={false}
-        />
+      <View style={styles.map}>
+        <MapView
+          style={StyleSheet.absoluteFill}
+          mapStyle={BLANK_STYLE}          // or: "https://demotiles.maplibre.org/style.json"
+          onLongPress={handleMapLongPress}
+          logoEnabled={false}
+          attributionEnabled={false}
+        >
+          <Camera centerCoordinate={[-51.9253, -14.2350]} zoomLevel={4} />
 
-        {clients.map(pin => (
-          <Marker
-            key={pin.id}
-            coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
-            pinColor={theme.accent}
-            title={pin.name}
-            description={t('map.markerDescription')}
-            onCalloutPress={() => handleViewClient(pin)}
-          />
-        ))}
-      </MapView>
+          <RasterSource
+            id="wm"
+            tileSize={256}
+            tileUrlTemplates={['https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png']}
+          >
+            <RasterLayer id="wmLayer" sourceID="wm" />
+          </RasterSource>
 
-      {/* Attribution overlay */}
+          {annotations}
+        </MapView>
+      </View>
+
       <View style={[styles.attributionContainer, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
         <Text style={styles.attributionText}>
           © OpenStreetMap contributors — tiles by Wikimedia
@@ -228,13 +254,8 @@ export default function MapScreen() {
                 </Pressable>
               )}
             />
-            <Pressable
-              style={styles.modalClose}
-              onPress={() => setSelectModalVisible(false)}
-            >
-              <Text style={{ color: theme.accent, fontWeight: '600' }}>
-                {t('common.cancel')}
-              </Text>
+            <Pressable style={styles.modalClose} onPress={() => setSelectModalVisible(false)}>
+              <Text style={{ color: theme.accent, fontWeight: '600' }}>{t('common.cancel')}</Text>
             </Pressable>
           </View>
         </View>
@@ -257,25 +278,15 @@ export default function MapScreen() {
                 <View key={i} style={styles.detailRow}>
                   <Text style={[styles.cell, { color: theme.text }]}>{it.name}</Text>
                   <Text style={[styles.cell, { color: theme.text }]}>{it.quantity}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>
-                    {`${currencySymbol}${it.unitPrice.toFixed(2)}`}
-                  </Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>
-                    {`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}
-                  </Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
+                  <Text style={[styles.cell, { color: theme.text }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
                 </View>
               ))}
             </ScrollView>
-            <Pressable
-              style={[styles.modalClose, { marginTop: 12 }]}
-              onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}
-            >
+            <Pressable style={[styles.modalClose, { marginTop: 12 }]} onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}>
               <Text style={{ color: theme.accent }}>{t('map.deletePin')}</Text>
             </Pressable>
-            <Pressable
-              style={[styles.modalClose, { marginTop: 8 }]}
-              onPress={() => setDetailModal(null)}
-            >
+            <Pressable style={[styles.modalClose, { marginTop: 8 }]} onPress={() => setDetailModal(null)}>
               <Text style={{ color: theme.accent }}>{t('common.close')}</Text>
             </Pressable>
           </View>
@@ -289,6 +300,13 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
 
+  markerDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+  },
+
   attributionContainer: {
     position: 'absolute',
     bottom: 8,
@@ -297,10 +315,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
   },
-  attributionText: {
-    fontSize: 10,
-    color: '#333',
-  },
+  attributionText: { fontSize: 10, color: '#333' },
 
   modalOverlay: {
     flex: 1,
@@ -317,37 +332,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  modalItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  modalItemText: {
-    fontSize: 16,
-  },
-  modalClose: {
-    alignSelf: 'flex-end',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginTop: 12,
-  },
-  modalList: {
-    marginVertical: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 4,
-  },
-  cell: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 14,
-  },
+  modalTitle: { fontSize: 20, fontWeight: '600', marginBottom: 12 },
+  modalItem: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1 },
+  modalItemText: { fontSize: 16 },
+  modalClose: { alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 12, marginTop: 12 },
+  modalList: { marginVertical: 8 },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
+  cell: { flex: 1, textAlign: 'center', fontSize: 14 },
 });
