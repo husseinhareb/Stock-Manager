@@ -11,14 +11,11 @@ import {
   StyleSheet,
   Text,
   View,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
-import {
-  MapView,
-  Camera,
-  RasterSource,
-  RasterLayer,
-  PointAnnotation,
-} from '@maplibre/maplibre-react-native';
+import MapView, { Marker, UrlTile } from 'react-native-maps';
+import type { LatLng } from 'react-native-maps';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { ClientPin, SavedClientSummary } from '../../src/db';
@@ -31,15 +28,6 @@ import {
   getSetting,
 } from '../../src/db';
 import { useTranslation } from 'react-i18next';
-
-const BLANK_STYLE = {
-  version: 8,
-  name: 'blank',
-  sources: {},
-  layers: [
-    { id: 'bg', type: 'background', paint: { 'background-color': '#eaeaea' } },
-  ],
-} as const;
 
 interface ClientItem {
   id: number;
@@ -101,13 +89,12 @@ export default function MapScreen() {
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   // --- Handlers ---
-  const handleMapLongPress = (e: any) => {
-    const coords = e?.geometry?.coordinates || e?.coordinates; // [lng, lat]
-    if (!coords || coords.length < 2) return;
-    const [longitude, latitude] = coords;
+  const handleMapLongPress = (e: { nativeEvent: { coordinate: LatLng } }) => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
     setNewPinCoord({ latitude, longitude });
     setSelectModalVisible(true);
   };
+
 
   const handleSelectClient = async (client: SavedClientSummary) => {
     if (!newPinCoord) return;
@@ -174,48 +161,51 @@ export default function MapScreen() {
     );
   };
 
-  const annotations = useMemo(
+  const markers = useMemo(
     () =>
       clients.map(pin => (
-        <PointAnnotation
+        <Marker
           key={`pin-${pin.id}`}
-          id={`pin-${pin.id}`}
-          coordinate={[pin.longitude, pin.latitude]}
-          onSelected={() => handleViewClient(pin)}
+          coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
+          onPress={() => handleViewClient(pin)}
         >
           <View style={[styles.markerDot, { backgroundColor: theme.accent, borderColor: '#fff' }]} />
-        </PointAnnotation>
+        </Marker>
       )),
     [clients, theme.accent]
   );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.map}>
+      <View style={styles.map as StyleProp<ViewStyle>}>
         <MapView
           style={StyleSheet.absoluteFill}
-          mapStyle={BLANK_STYLE}          // or: "https://demotiles.maplibre.org/style.json"
+          // show only raster tiles to mimic your previous "blank + raster" style
+          mapType="none"
+          initialRegion={{
+            latitude: -14.2350,
+            longitude: -51.9253,
+            latitudeDelta: 30,     // zoom-ish
+            longitudeDelta: 30,
+          }}
           onLongPress={handleMapLongPress}
-          logoEnabled={false}
-          attributionEnabled={false}
         >
-          <Camera centerCoordinate={[-51.9253, -14.2350]} zoomLevel={4} />
-
-          <RasterSource
-            id="wm"
+          {/* OSM tiles */}
+          <UrlTile
+            urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maximumZ={19}
+            flipY={false}
             tileSize={256}
-            tileUrlTemplates={['https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png']}
-          >
-            <RasterLayer id="wmLayer" sourceID="wm" />
-          </RasterSource>
+            zIndex={0}
+          />
 
-          {annotations}
+          {markers}
         </MapView>
       </View>
 
       <View style={[styles.attributionContainer, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
         <Text style={styles.attributionText}>
-          © OpenStreetMap contributors — tiles by Wikimedia
+          © OpenStreetMap contributors
         </Text>
       </View>
 
@@ -283,7 +273,10 @@ export default function MapScreen() {
                 </View>
               ))}
             </ScrollView>
-            <Pressable style={[styles.modalClose, { marginTop: 12 }]} onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}>
+            <Pressable
+              style={[styles.modalClose, { marginTop: 12 }]}
+              onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}
+            >
               <Text style={{ color: theme.accent }}>{t('map.deletePin')}</Text>
             </Pressable>
             <Pressable style={[styles.modalClose, { marginTop: 8 }]} onPress={() => setDetailModal(null)}>
