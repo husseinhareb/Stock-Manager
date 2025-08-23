@@ -1,6 +1,6 @@
 // app/(tabs)/map.tsx
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -11,11 +11,8 @@ import {
   StyleSheet,
   Text,
   View,
-  StyleProp,
-  ViewStyle,
 } from 'react-native';
-import MapView, { Marker, UrlTile } from 'react-native-maps';
-import type { LatLng } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { ClientPin, SavedClientSummary } from '../../src/db';
@@ -29,49 +26,40 @@ import {
 } from '../../src/db';
 import { useTranslation } from 'react-i18next';
 
-interface ClientItem {
-  id: number;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-}
+type ClientItem = { id: number; name: string; quantity: number; unitPrice: number };
+
+const MAPTILER_KEY =
+  process.env.EXPO_PUBLIC_MAPTILER_KEY ||
+  // optional fallback if you also put it in app.json → expo.extra.MAPTILER_KEY
+  (require('expo-constants').default.expoConfig?.extra?.MAPTILER_KEY ?? '');
 
 export default function MapScreen() {
   const { t } = useTranslation();
   const scheme = useColorScheme();
   const theme = Colors[scheme ?? 'light'];
 
-  // --- Currency setting ---
-  const [currencyCode, setCurrencyCode] = useState('USD');
+  // Currency
   const [currencySymbol, setCurrencySymbol] = useState('$');
-  const SYMBOLS: Record<string, string> = {
-    USD: '$', EUR: '€', GBP: '£',
-    JPY: '¥', CAD: 'C$', AUD: 'A$',
-    CHF: 'CHF', CNY: '¥', BRL: 'R$',
-  };
-
   useEffect(() => {
     (async () => {
       try {
         const code = await getSetting('currency', 'USD');
-        setCurrencyCode(code);
-        setCurrencySymbol(SYMBOLS[code] ?? '$');
-      } catch (e) {
-        console.error('Failed to load currency setting:', e);
-      }
+        const symbols: Record<string, string> = {
+          USD: '$', EUR: '€', GBP: '£', JPY: '¥', CAD: 'C$', AUD: 'A$',
+          CHF: 'CHF', CNY: '¥', BRL: 'R$',
+        };
+        setCurrencySymbol(symbols[code] ?? '$');
+      } catch (e) { console.warn(e); }
     })();
   }, []);
 
-  // --- Data state ---
+  // Data
   const [clients, setClients] = useState<ClientPin[]>([]);
   const [savedClients, setSavedClients] = useState<SavedClientSummary[]>([]);
   const [newPinCoord, setNewPinCoord] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectModalVisible, setSelectModalVisible] = useState(false);
   const [detailModal, setDetailModal] = useState<{
-    pinId: number;
-    client: string;
-    total: number;
-    items: ClientItem[];
+    pinId: number; client: string; total: number; items: ClientItem[];
   } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -79,22 +67,38 @@ export default function MapScreen() {
       const [cls, sc] = await Promise.all([fetchClients(), fetchSavedClients()]);
       setClients(Array.isArray(cls) ? cls : []);
       setSavedClients(Array.isArray(sc) ? sc : []);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert(t('map.loadFailedTitle'), msg);
+    } catch (e: any) {
+      Alert.alert(t('map.loadFailedTitle'), e.message || String(e));
     }
   }, [t]);
-
   useEffect(() => { loadData(); }, [loadData]);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  // --- Handlers ---
-  const handleMapLongPress = (e: { nativeEvent: { coordinate: LatLng } }) => {
-    const { latitude, longitude } = e.nativeEvent.coordinate;
-    setNewPinCoord({ latitude, longitude });
-    setSelectModalVisible(true);
-  };
+  // ------ WebView (Leaflet) bridge ------
+  const webRef = useRef<WebView>(null);
 
+  // send markers to WebView whenever client pins change
+  useEffect(() => {
+    const markers = clients.map(p => ({
+      id: p.id, name: p.name, latitude: p.latitude, longitude: p.longitude
+    }));
+    const js = `window.__setMarkers && window.__setMarkers(${JSON.stringify(markers)}); true;`;
+    webRef.current?.injectJavaScript(js);
+  }, [clients]);
+
+  // handle messages coming from WebView (long press & marker click)
+  const onWebMessage = (ev: any) => {
+    try {
+      const msg = JSON.parse(ev.nativeEvent.data);
+      if (msg.type === 'longPress') {
+        setNewPinCoord({ latitude: msg.lat, longitude: msg.lng });
+        setSelectModalVisible(true);
+      } else if (msg.type === 'markerPress') {
+        const pin = clients.find(c => c.id === msg.id);
+        if (pin) handleViewClient(pin);
+      }
+    } catch {}
+  };
 
   const handleSelectClient = async (client: SavedClientSummary) => {
     if (!newPinCoord) return;
@@ -103,20 +107,18 @@ export default function MapScreen() {
       setSelectModalVisible(false);
       setNewPinCoord(null);
       await loadData();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert(t('map.errorSavingPinTitle'), msg);
+    } catch (e: any) {
+      Alert.alert(t('map.errorSavingPinTitle'), e.message || String(e));
     }
   };
 
   const handleViewClient = async (pin: ClientPin) => {
     const summary = savedClients.find(s => s.client === pin.name);
     if (!summary) {
-      Alert.alert(
+      return Alert.alert(
         t('map.clientNotFoundTitle'),
         t('map.clientNotFoundMessage', { client: pin.name })
       );
-      return;
     }
     try {
       const lines = await fetchClientItems(summary.id);
@@ -125,15 +127,11 @@ export default function MapScreen() {
         client: summary.client,
         total: summary.total,
         items: lines.map(l => ({
-          id: l.article_id,
-          name: l.name,
-          quantity: l.quantity,
-          unitPrice: l.price,
+          id: l.article_id, name: l.name, quantity: l.quantity, unitPrice: l.price
         })),
       });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert(t('map.errorLoadingClientTitle'), msg);
+    } catch (e: any) {
+      Alert.alert(t('map.errorLoadingClientTitle'), e.message || String(e));
     }
   };
 
@@ -144,83 +142,102 @@ export default function MapScreen() {
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: t('common.delete'),
-          style: 'destructive',
+          text: t('common.delete'), style: 'destructive',
           onPress: async () => {
-            try {
-              await deleteClient(pinId);
-              setDetailModal(null);
-              await loadData();
-            } catch (e: unknown) {
-              const msg = e instanceof Error ? e.message : String(e);
-              Alert.alert(t('map.errorDeletingPinTitle'), msg);
-            }
+            try { await deleteClient(pinId); setDetailModal(null); await loadData(); }
+            catch (e: any) { Alert.alert(t('map.errorDeletingPinTitle'), e.message || String(e)); }
           }
         }
       ]
     );
   };
 
-  const markers = useMemo(
-    () =>
-      clients.map(pin => (
-        <Marker
-          key={`pin-${pin.id}`}
-          coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
-          onPress={() => handleViewClient(pin)}
-        >
-          <View style={[styles.markerDot, { backgroundColor: theme.accent, borderColor: '#fff' }]} />
-        </Marker>
-      )),
-    [clients, theme.accent]
-  );
+  const html = useMemo(() => {
+    // Leaflet + MapTiler raster (free tier). Attribution required.
+    // Long-press detection: 500ms touch.
+    return `
+<!doctype html><html><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body, #map { height:100%; margin:0; padding:0; }
+  .marker-dot { width:14px; height:14px; border-radius:7px; border:2px solid #fff; background:#3b82f6; }
+</style>
+</head><body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const RN = window.ReactNativeWebView;
+
+  const map = L.map('map', { zoomControl: true, attributionControl: true })
+    .setView([-14.2350, -51.9253], 4);
+
+  // MapTiler tiles (free tier)
+  const key = ${JSON.stringify(MAPTILER_KEY || "")};
+  const url = key
+    ? \`https://api.maptiler.com/maps/streets/{z}/{x}/{y}@2x.png?key=\${key}\`
+    : 'https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=__MISSING__';
+  L.tileLayer(url, { maxZoom: 20, tileSize: 512, zoomOffset: -1,
+    attribution: '&copy; MapTiler &copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Long-press detection
+  let pressTimer = null;
+  function startPress(e) {
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      const latlng = map.mouseEventToLatLng(e.touches ? e.touches[0] : e);
+      RN && RN.postMessage(JSON.stringify({ type:'longPress', lat: latlng.lat, lng: latlng.lng }));
+    }, 500);
+  }
+  function endPress() { clearTimeout(pressTimer); }
+
+  const el = document.getElementById('map');
+  el.addEventListener('touchstart', startPress, {passive:true});
+  el.addEventListener('touchend', endPress);
+  el.addEventListener('mousedown', startPress);
+  el.addEventListener('mouseup', endPress);
+  el.addEventListener('mouseleave', endPress);
+
+  // Markers
+  let layer = L.layerGroup().addTo(map);
+  function setMarkers(list) {
+    layer.clearLayers();
+    (list || []).forEach(m => {
+      const marker = L.marker([m.latitude, m.longitude]);
+      marker.on('click', () => RN && RN.postMessage(JSON.stringify({ type:'markerPress', id: m.id })));
+      marker.addTo(layer);
+    });
+  }
+  window.__setMarkers = setMarkers;
+</script>
+</body></html>
+`;
+  }, []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.map as StyleProp<ViewStyle>}>
-        <MapView
-          style={StyleSheet.absoluteFill}
-          // show only raster tiles to mimic your previous "blank + raster" style
-          mapType="none"
-          initialRegion={{
-            latitude: -14.2350,
-            longitude: -51.9253,
-            latitudeDelta: 30,     // zoom-ish
-            longitudeDelta: 30,
-          }}
-          onLongPress={handleMapLongPress}
-        >
-          {/* OSM tiles */}
-          <UrlTile
-            urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            maximumZ={19}
-            flipY={false}
-            tileSize={256}
-            zIndex={0}
-          />
+      <WebView
+        ref={webRef}
+        originWhitelist={['*']}
+        source={{ html }}
+        onMessage={onWebMessage}
+        setSupportMultipleWindows={false}
+        javaScriptEnabled
+        domStorageEnabled
+      />
 
-          {markers}
-        </MapView>
-      </View>
-
-      <View style={[styles.attributionContainer, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
-        <Text style={styles.attributionText}>
-          © OpenStreetMap contributors
-        </Text>
+      <View style={[styles.attribution, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
+        <Text style={styles.attrText}>© MapTiler © OpenStreetMap contributors</Text>
       </View>
 
       {/* Select Client Modal */}
-      <Modal
-        visible={selectModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectModalVisible(false)}
-      >
+      <Modal visible={selectModalVisible} transparent animationType="slide" onRequestClose={() => setSelectModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>
-              {t('map.selectClientModalTitle')}
-            </Text>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>{t('map.selectClientModalTitle')}</Text>
             <FlatList
               data={savedClients}
               keyExtractor={c => String(c.id)}
@@ -231,11 +248,7 @@ export default function MapScreen() {
                   onPress={() => handleSelectClient(item)}
                   style={({ pressed }) => [
                     styles.modalItem,
-                    {
-                      backgroundColor: theme.card,
-                      borderColor: theme.border,
-                      opacity: pressed ? 0.6 : 1,
-                    },
+                    { backgroundColor: theme.card, borderColor: theme.border, opacity: pressed ? 0.6 : 1 }
                   ]}
                 >
                   <Text style={[styles.modalItemText, { color: theme.text }]}>
@@ -252,17 +265,10 @@ export default function MapScreen() {
       </Modal>
 
       {/* Client Detail Modal */}
-      <Modal
-        visible={!!detailModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDetailModal(null)}
-      >
+      <Modal visible={!!detailModal} transparent animationType="fade" onRequestClose={() => setDetailModal(null)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>
-              {detailModal?.client}
-            </Text>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>{detailModal?.client}</Text>
             <ScrollView style={styles.modalList}>
               {detailModal?.items.map((it, i) => (
                 <View key={i} style={styles.detailRow}>
@@ -273,10 +279,7 @@ export default function MapScreen() {
                 </View>
               ))}
             </ScrollView>
-            <Pressable
-              style={[styles.modalClose, { marginTop: 12 }]}
-              onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}
-            >
+            <Pressable style={[styles.modalClose, { marginTop: 12 }]} onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}>
               <Text style={{ color: theme.accent }}>{t('map.deletePin')}</Text>
             </Pressable>
             <Pressable style={[styles.modalClose, { marginTop: 8 }]} onPress={() => setDetailModal(null)}>
@@ -291,39 +294,15 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  map: { flex: 1 },
-
-  markerDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-  },
-
-  attributionContainer: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  attributionText: { fontSize: 10, color: '#333' },
+  attribution: { position: 'absolute', right: 8, bottom: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  attrText: { fontSize: 10, color: '#333' },
 
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center',
   },
   modal: {
-    width: '85%',
-    maxHeight: '70%',
-    borderRadius: 12,
-    padding: 16,
-    elevation: 6,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    width: '85%', maxHeight: '70%', borderRadius: 12, padding: 16, elevation: 6,
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2,
   },
   modalTitle: { fontSize: 20, fontWeight: '600', marginBottom: 12 },
   modalItem: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1 },
