@@ -468,13 +468,28 @@ export default function ClientScreen() {
                 ))}
               </ScrollView>
               <View style={styles.modalActions}>
-                <Pressable onPress={() => detailModal && shareReceipt(detailModal)} style={styles.modalBtn}>
+                {/* Share PDF — primary/filled */}
+                <Pressable
+                  onPress={() => detailModal && shareReceipt(detailModal)}
+                  style={[styles.modalBtn, { backgroundColor: theme.accent }]}
+                >
                   <Text style={{ color: '#fff' }}>{t('client.sharePDF')}</Text>
                 </Pressable>
-                <Pressable onPress={() => setDetailModal(null)} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>
-                  <Text style={{ color: '#fff' }}>{t('common.close')}</Text>
+
+                {/* Close — outline/secondary */}
+                <Pressable
+                  onPress={() => setDetailModal(null)}
+                  style={[
+                    styles.modalBtn,
+                    { borderWidth: 1, borderColor: theme.accent, backgroundColor: 'transparent' }
+                  ]}
+                >
+                  <Text style={{ color: theme.accent, fontWeight: '600' }}>
+                    {t('common.close')}
+                  </Text>
                 </Pressable>
               </View>
+
             </View>
           </View>
         </Modal>

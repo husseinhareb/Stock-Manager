@@ -97,7 +97,7 @@ export default function MapScreen() {
         const pin = clients.find(c => c.id === msg.id);
         if (pin) handleViewClient(pin);
       }
-    } catch {}
+    } catch { }
   };
 
   const handleSelectClient = async (client: SavedClientSummary) => {
@@ -154,7 +154,7 @@ export default function MapScreen() {
 
   const html = useMemo(() => {
     // Leaflet + MapTiler raster (free tier). Attribution required.
-    // Long-press detection: 500ms touch.
+    // Long-press detection: single finger, no drag/zoom, 500ms hold.
     return `
 <!doctype html><html><head>
 <meta charset="utf-8" />
@@ -179,29 +179,91 @@ export default function MapScreen() {
   const url = key
     ? \`https://api.maptiler.com/maps/streets/{z}/{x}/{y}@2x.png?key=\${key}\`
     : 'https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=__MISSING__';
-  L.tileLayer(url, { maxZoom: 20, tileSize: 512, zoomOffset: -1,
+  L.tileLayer(url, {
+    maxZoom: 20, tileSize: 512, zoomOffset: -1,
     attribution: '&copy; MapTiler &copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  // Long-press detection
+  // ---------- Robust long-press: single finger + no movement ----------
+  const LONG_PRESS_MS = 500;   // hold duration
+  const MOVE_TOLERANCE = 10;   // px of allowed jitter
+
   let pressTimer = null;
-  function startPress(e) {
-    clearTimeout(pressTimer);
-    pressTimer = setTimeout(() => {
-      const latlng = map.mouseEventToLatLng(e.touches ? e.touches[0] : e);
-      RN && RN.postMessage(JSON.stringify({ type:'longPress', lat: latlng.lat, lng: latlng.lng }));
-    }, 500);
+  let startPt = null;          // container point captured at start
+  let mouseDown = false;
+
+  function clearPress() {
+    if (pressTimer) clearTimeout(pressTimer);
+    pressTimer = null;
+    startPt = null;
+    mouseDown = false;
   }
-  function endPress() { clearTimeout(pressTimer); }
 
+  function scheduleLongPress(latlngGetter) {
+    if (pressTimer) clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      if (!startPt) return;
+      const latlng = latlngGetter();
+      if (!latlng) return;
+      RN && RN.postMessage(JSON.stringify({ type:'longPress', lat: latlng.lat, lng: latlng.lng }));
+      clearPress();
+    }, LONG_PRESS_MS);
+  }
+
+  // ---- Touch handlers (mobile) ----
+  function onTouchStart(e) {
+    if (!e.touches || e.touches.length !== 1) { // multi-touch (pinch) -> cancel
+      clearPress();
+      return;
+    }
+    const t = e.touches[0];
+    startPt = map.mouseEventToContainerPoint(t);
+    scheduleLongPress(() => map.containerPointToLatLng(startPt));
+  }
+
+  function onTouchMove(e) {
+    if (!pressTimer) return;
+    if (!e.touches || e.touches.length !== 1) { clearPress(); return; }
+    const t = e.touches[0];
+    const pt = map.mouseEventToContainerPoint(t);
+    const dx = pt.x - startPt.x, dy = pt.y - startPt.y;
+    if (Math.hypot(dx, dy) > MOVE_TOLERANCE) clearPress(); // user is panning
+  }
+
+  function onTouchEnd() { clearPress(); }
+  function onTouchCancel() { clearPress(); }
+
+  // ---- Mouse handlers (optional; for simulators/desktops) ----
+  function onMouseDown(e) {
+    mouseDown = true;
+    startPt = map.mouseEventToContainerPoint(e);
+    scheduleLongPress(() => map.containerPointToLatLng(startPt));
+  }
+  function onMouseMove(e) {
+    if (!mouseDown || !pressTimer) return;
+    const pt = map.mouseEventToContainerPoint(e);
+    const dx = pt.x - startPt.x, dy = pt.y - startPt.y;
+    if (Math.hypot(dx, dy) > MOVE_TOLERANCE) clearPress();
+  }
+  function onMouseUp() { clearPress(); }
+  function onMouseLeave() { clearPress(); }
+
+  // Extra safety: cancel if Leaflet starts moving/zooming
+  map.on('dragstart zoomstart movestart', clearPress);
+
+  // Attach listeners
   const el = document.getElementById('map');
-  el.addEventListener('touchstart', startPress, {passive:true});
-  el.addEventListener('touchend', endPress);
-  el.addEventListener('mousedown', startPress);
-  el.addEventListener('mouseup', endPress);
-  el.addEventListener('mouseleave', endPress);
+  el.addEventListener('touchstart', onTouchStart, { passive: true });
+  el.addEventListener('touchmove', onTouchMove, { passive: true });
+  el.addEventListener('touchend', onTouchEnd, { passive: true });
+  el.addEventListener('touchcancel', onTouchCancel, { passive: true });
 
-  // Markers
+  el.addEventListener('mousedown', onMouseDown);
+  el.addEventListener('mousemove', onMouseMove);
+  el.addEventListener('mouseup', onMouseUp);
+  el.addEventListener('mouseleave', onMouseLeave);
+
+  // ---------- Markers bridge ----------
   let layer = L.layerGroup().addTo(map);
   function setMarkers(list) {
     layer.clearLayers();
