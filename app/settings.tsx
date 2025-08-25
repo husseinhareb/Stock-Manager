@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useColorScheme, useThemePref } from '@/hooks/useColorScheme'; // <-- use global theme context
 import { Colors } from '@/constants/Colors';
 import { useTranslation } from 'react-i18next';
 import { saveSetting, getSetting } from '../src/db';
@@ -21,14 +21,9 @@ const LANGS = [
   { code: 'es', labelKey: 'settings.languageOptions.es' },
   { code: 'fr', labelKey: 'settings.languageOptions.fr' },
   { code: 'ar', labelKey: 'settings.languageOptions.ar' },
-
 ];
 
-const THEMES: Array<'system' | 'light' | 'dark'> = [
-  'system',
-  'light',
-  'dark',
-];
+const THEMES: Array<'system' | 'light' | 'dark'> = ['system', 'light', 'dark'];
 
 const CURRENCIES = [
   { code: 'USD', symbol: '$', labelKey: 'settings.currencyOptions.usd' },
@@ -44,12 +39,13 @@ const CURRENCIES = [
 
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
-  const systemScheme = useColorScheme();
-  const [themePref, setThemePref] =
-    useState<'system' | 'light' | 'dark'>('system');
-  const effectiveScheme =
-    themePref === 'system' ? systemScheme : themePref;
-  const theme = Colors[effectiveScheme ?? 'light'];
+
+  // Effective scheme ('light' | 'dark') from provider (follows pref + system)
+  const scheme = useColorScheme();
+  const theme = Colors[scheme];
+
+  // Current theme preference ('system' | 'light' | 'dark') + setter from provider
+  const { pref: themePref, setPref } = useThemePref();
 
   const [selectedCurrency, setSelectedCurrency] = useState('USD');
   const [themeModalVisible, setThemeModalVisible] = useState(false);
@@ -57,41 +53,27 @@ export default function SettingsScreen() {
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load settings from database on component mount
+  // Load currency & language once (theme pref is handled by provider)
   useEffect(() => {
-    const loadSettings = async () => {
+    (async () => {
       try {
-        const [theme, currency, language] = await Promise.all([
-          getSetting('theme', 'system'),
+        const [currency, language] = await Promise.all([
           getSetting('currency', 'USD'),
-          getSetting('language', 'en')
+          getSetting('language', 'en'),
         ]);
-
-        setThemePref(theme as 'system' | 'light' | 'dark');
         setSelectedCurrency(currency);
-
-        // Set language if different from current
-        if (language !== i18n.language) {
-          i18n.changeLanguage(language);
-        }
+        if (language !== i18n.language) i18n.changeLanguage(language);
       } catch (error) {
         console.error('Failed to load settings:', error);
       } finally {
         setIsLoading(false);
       }
-    };
-
-    loadSettings();
+    })();
   }, [i18n]);
 
   const handleThemeSelect = async (opt: 'system' | 'light' | 'dark') => {
-    setThemePref(opt);
     setThemeModalVisible(false);
-    try {
-      await saveSetting('theme', opt);
-    } catch (error) {
-      console.error('Failed to save theme setting:', error);
-    }
+    await setPref(opt); // provider saves & broadcasts change app-wide
   };
 
   const handleLanguageSelect = async (code: string) => {
@@ -119,56 +101,33 @@ export default function SettingsScreen() {
     console.log('Quit app');
   };
 
-  const getCurrentCurrency = () => {
-    return CURRENCIES.find(c => c.code === selectedCurrency) || CURRENCIES[0];
-  };
+  const getCurrentCurrency = () =>
+    CURRENCIES.find(c => c.code === selectedCurrency) || CURRENCIES[0];
 
-  // Show loading state while settings are being loaded
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.background }]}
-      >
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: theme.text }]}>
-            {t('common.loading')}
-          </Text>
+          <Text style={[styles.loadingText, { color: theme.text }]}>{t('common.loading')}</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
-    >
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Theme Picker */}
         <TouchableOpacity
           onPress={() => setThemeModalVisible(true)}
           style={[styles.row, { borderColor: theme.border }]}
         >
-          <MaterialIcons
-            name="brightness-6"
-            size={24}
-            color={theme.accent}
-            style={styles.icon}
-          />
-          <Text
-            style={[styles.label, { color: theme.text }]}
-          >
-            {t('settings.theme')}
-          </Text>
-          <Text
-            style={[styles.value, { color: theme.text }]}
-          >
+          <MaterialIcons name="brightness-6" size={24} color={theme.accent} style={styles.icon} />
+          <Text style={[styles.label, { color: theme.text }]}>{t('settings.theme')}</Text>
+          <Text style={[styles.value, { color: theme.text }]}>
             {t(`settings.themeOptions.${themePref}`)}
           </Text>
-          <FontAwesome
-            name="angle-right"
-            size={20}
-            color={theme.text}
-          />
+          <FontAwesome name="angle-right" size={20} color={theme.text} />
         </TouchableOpacity>
 
         {/* Language Picker */}
@@ -176,30 +135,12 @@ export default function SettingsScreen() {
           onPress={() => setLangModalVisible(true)}
           style={[styles.row, { borderColor: theme.border }]}
         >
-          <MaterialIcons
-            name="language"
-            size={24}
-            color={theme.accent}
-            style={styles.icon}
-          />
-          <Text
-            style={[styles.label, { color: theme.text }]}
-          >
-            {t('settings.language')}
+          <MaterialIcons name="language" size={24} color={theme.accent} style={styles.icon} />
+          <Text style={[styles.label, { color: theme.text }]}>{t('settings.language')}</Text>
+          <Text style={[styles.value, { color: theme.text }]}>
+            {t(LANGS.find(l => l.code === i18n.language)!.labelKey)}
           </Text>
-          <Text
-            style={[styles.value, { color: theme.text }]}
-          >
-            {t(
-              LANGS.find((l) => l.code === i18n.language)!
-                .labelKey
-            )}
-          </Text>
-          <FontAwesome
-            name="angle-right"
-            size={20}
-            color={theme.text}
-          />
+          <FontAwesome name="angle-right" size={20} color={theme.text} />
         </TouchableOpacity>
 
         {/* Currency Picker */}
@@ -207,231 +148,87 @@ export default function SettingsScreen() {
           onPress={() => setCurrencyModalVisible(true)}
           style={[styles.row, { borderColor: theme.border }]}
         >
-          <MaterialIcons
-            name="attach-money"
-            size={24}
-            color={theme.accent}
-            style={styles.icon}
-          />
-          <Text
-            style={[styles.label, { color: theme.text }]}
-          >
-            {t('settings.currency')}
-          </Text>
-          <Text
-            style={[styles.value, { color: theme.text }]}
-          >
+          <MaterialIcons name="attach-money" size={24} color={theme.accent} style={styles.icon} />
+          <Text style={[styles.label, { color: theme.text }]}>{t('settings.currency')}</Text>
+          <Text style={[styles.value, { color: theme.text }]}>
             {getCurrentCurrency().symbol} - {t(getCurrentCurrency().labelKey)}
           </Text>
-          <FontAwesome
-            name="angle-right"
-            size={20}
-            color={theme.text}
-          />
+          <FontAwesome name="angle-right" size={20} color={theme.text} />
         </TouchableOpacity>
 
         {/* Quit */}
-        <TouchableOpacity
-          onPress={handleQuit}
-          style={[styles.row, { borderColor: theme.border }]}
-        >
-          <MaterialIcons
-            name="exit-to-app"
-            size={24}
-            color={theme.accent}
-            style={styles.icon}
-          />
-          <Text
-            style={[styles.label, { color: theme.text }]}
-          >
-            {t('settings.quit')}
-          </Text>
+        <TouchableOpacity onPress={handleQuit} style={[styles.row, { borderColor: theme.border }]}>
+          <MaterialIcons name="exit-to-app" size={24} color={theme.accent} style={styles.icon} />
+          <Text style={[styles.label, { color: theme.text }]}>{t('settings.quit')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
       {/* Theme Modal */}
-      <Modal
-        visible={themeModalVisible}
-        transparent
-        animationType="slide"
-      >
+      <Modal visible={themeModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalBox,
-              {
-                backgroundColor: theme.card,
-                shadowColor: theme.shadow,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.modalTitle,
-                { color: theme.primary },
-              ]}
-            >
-              {t('settings.selectTheme')}
-            </Text>
-            {THEMES.map((opt) => (
-              <Pressable
-                key={opt}
-                style={styles.optionRow}
-                onPress={() => handleThemeSelect(opt)}
-              >
-                <Text
-                  style={[
-                    styles.optionText,
-                    { color: theme.text },
-                  ]}
-                >
+          <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>{t('settings.selectTheme')}</Text>
+            {THEMES.map(opt => (
+              <Pressable key={opt} style={styles.optionRow} onPress={() => handleThemeSelect(opt)}>
+                <Text style={[styles.optionText, { color: theme.text }]}>
                   {t(`settings.themeOptions.${opt}`)}
                 </Text>
-                {themePref === opt && (
-                  <FontAwesome
-                    name="check"
-                    size={18}
-                    color={theme.accent}
-                  />
-                )}
+                {themePref === opt && <FontAwesome name="check" size={18} color={theme.accent} />}
               </Pressable>
             ))}
             <Pressable
               onPress={() => setThemeModalVisible(false)}
-              style={[
-                styles.modalBtn,
-                { backgroundColor: theme.accent },
-              ]}
+              style={[styles.modalBtn, { backgroundColor: theme.accent }]}
             >
-              <Text style={{ color: '#fff' }}>
-                {t('common.cancel')}
-              </Text>
+              <Text style={{ color: '#fff' }}>{t('common.cancel')}</Text>
             </Pressable>
           </View>
         </View>
       </Modal>
 
       {/* Language Modal */}
-      <Modal
-        visible={langModalVisible}
-        transparent
-        animationType="slide"
-      >
+      <Modal visible={langModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalBox,
-              {
-                backgroundColor: theme.card,
-                shadowColor: theme.shadow,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.modalTitle,
-                { color: theme.primary },
-              ]}
-            >
-              {t('settings.selectLanguage')}
-            </Text>
-            {LANGS.map((opt) => (
-              <Pressable
-                key={opt.code}
-                style={styles.optionRow}
-                onPress={() => handleLanguageSelect(opt.code)}
-              >
-                <Text
-                  style={[
-                    styles.optionText,
-                    { color: theme.text },
-                  ]}
-                >
-                  {t(opt.labelKey)}
-                </Text>
-                {i18n.language === opt.code && (
-                  <FontAwesome
-                    name="check"
-                    size={18}
-                    color={theme.accent}
-                  />
-                )}
+          <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>{t('settings.selectLanguage')}</Text>
+            {LANGS.map(opt => (
+              <Pressable key={opt.code} style={styles.optionRow} onPress={() => handleLanguageSelect(opt.code)}>
+                <Text style={[styles.optionText, { color: theme.text }]}>{t(opt.labelKey)}</Text>
+                {i18n.language === opt.code && <FontAwesome name="check" size={18} color={theme.accent} />}
               </Pressable>
             ))}
             <Pressable
               onPress={() => setLangModalVisible(false)}
-              style={[
-                styles.modalBtn,
-                { backgroundColor: theme.accent },
-              ]}
+              style={[styles.modalBtn, { backgroundColor: theme.accent }]}
             >
-              <Text style={{ color: '#fff' }}>
-                {t('common.cancel')}
-              </Text>
+              <Text style={{ color: '#fff' }}>{t('common.cancel')}</Text>
             </Pressable>
           </View>
         </View>
       </Modal>
 
       {/* Currency Modal */}
-      <Modal
-        visible={currencyModalVisible}
-        transparent
-        animationType="slide"
-      >
+      <Modal visible={currencyModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalBox,
-              {
-                backgroundColor: theme.card,
-                shadowColor: theme.shadow,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.modalTitle,
-                { color: theme.primary },
-              ]}
-            >
-              {t('settings.selectCurrency')}
-            </Text>
+          <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>{t('settings.selectCurrency')}</Text>
             <ScrollView style={{ maxHeight: 300 }}>
-              {CURRENCIES.map((opt) => (
-                <Pressable
-                  key={opt.code}
-                  style={styles.optionRow}
-                  onPress={() => handleCurrencySelect(opt.code)}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      { color: theme.text },
-                    ]}
-                  >
+              {CURRENCIES.map(opt => (
+                <Pressable key={opt.code} style={styles.optionRow} onPress={() => handleCurrencySelect(opt.code)}>
+                  <Text style={[styles.optionText, { color: theme.text }]}>
                     {opt.symbol} - {t(opt.labelKey)}
                   </Text>
                   {selectedCurrency === opt.code && (
-                    <FontAwesome
-                      name="check"
-                      size={18}
-                      color={theme.accent}
-                    />
+                    <FontAwesome name="check" size={18} color={theme.accent} />
                   )}
                 </Pressable>
               ))}
             </ScrollView>
             <Pressable
               onPress={() => setCurrencyModalVisible(false)}
-              style={[
-                styles.modalBtn,
-                { backgroundColor: theme.accent },
-              ]}
+              style={[styles.modalBtn, { backgroundColor: theme.accent }]}
             >
-              <Text style={{ color: '#fff' }}>
-                {t('common.cancel')}
-              </Text>
+              <Text style={{ color: '#fff' }}>{t('common.cancel')}</Text>
             </Pressable>
           </View>
         </View>
@@ -490,12 +287,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 6,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-  },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontSize: 16 },
 });
