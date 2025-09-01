@@ -909,22 +909,21 @@ const styles = StyleSheet.create({
   detailPrice: { width: 60, textAlign: "right" },
   detailTotal: { width: 70, textAlign: "right", marginLeft: 12 },
   totalBadges: {
-  flexDirection: 'row',
-  alignItems: 'center',
-},
-badge: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  borderWidth: 1,
-  borderRadius: 999,
-  paddingVertical: 4,
-  paddingHorizontal: 10,
-  marginRight: 8,
-},
-badgeText: {
-  marginLeft: 6,
-  fontWeight: '700',
-  fontSize: 16,
-},
-
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginRight: 8,
+  },
+  badgeText: {
+    marginLeft: 6,
+    fontWeight: "700",
+    fontSize: 16,
+  },
 });
