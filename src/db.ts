@@ -377,15 +377,12 @@ export async function fetchClientTotal(): Promise<number> {
 
 export async function saveClient(
   client: string,
-  items: { article_id: number; quantity: number; price: number }[]
+  items: { article_id: number; quantity: number; price: number; name: string }[]
 ): Promise<void> {
   const db = await getDB();
   await db.execAsync(`BEGIN TRANSACTION;`);
   try {
-    await db.runAsync(
-      `INSERT INTO saved_clients (client) VALUES (?);`,
-      client
-    );
+    await db.runAsync(`INSERT INTO saved_clients (client) VALUES (?);`, client);
     const row = await db.getFirstAsync<{ id: number }>(
       `SELECT last_insert_rowid() AS id;`
     );
@@ -394,12 +391,9 @@ export async function saveClient(
 
     for (const it of items) {
       await db.runAsync(
-        `INSERT INTO saved_client_items (client_id, article_id, quantity, price)
-           VALUES (?, ?, ?, ?);`,
-        clientId,
-        it.article_id,
-        it.quantity,
-        it.price
+        `INSERT INTO saved_client_items (client_id, article_id, quantity, price, name)
+           VALUES (?, ?, ?, ?, ?);`,
+        clientId, it.article_id, it.quantity, it.price, it.name
       );
     }
 
@@ -433,16 +427,17 @@ export async function fetchClientItems(clientId: number): Promise<SavedClientIte
     `
     SELECT
       sci.article_id,
-      m.name,
+      COALESCE(sci.name, m.name) AS name,
       sci.quantity,
       sci.price
     FROM saved_client_items sci
-    JOIN main_stock m ON m.id = sci.article_id
+    LEFT JOIN main_stock m ON m.id = sci.article_id
     WHERE sci.client_id = ?;
     `,
     clientId
   );
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Client Pins API

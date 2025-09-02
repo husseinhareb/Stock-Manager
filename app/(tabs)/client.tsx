@@ -194,8 +194,10 @@ export default function ClientScreen() {
           article_id: it.id,
           quantity: it.quantity,
           price: it.unitPrice,
+          name: it.name, 
         }))
       );
+
       setSelection({});
       setClientName("");
       setIsBuilding(false);

@@ -209,53 +209,187 @@ export default function ChinaStockScreen() {
 }
 
 const styles = StyleSheet.create({
-  heading: { fontSize: 28, fontWeight: 'bold', margin: 16 },
-  form: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16 },
+  // Top heading (if used)
+  heading: {
+    fontSize: 28,
+    fontWeight: '800',
+    margin: 16,
+    letterSpacing: 0.2,
+  },
+
+  // Add form
+  form: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 6,
+  },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    marginRight: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginRight: 10,
+    backgroundColor: 'rgba(127,127,127,0.06)', // soft fill that works on light/dark
   },
-  inputIcon: { marginRight: 4 },
-  input: { flex: 1, height: 40 },
-  fabAdd: { padding: 12, borderRadius: 8 },
-  list: { padding: 16, paddingBottom: 120 },
+  inputIcon: {
+    marginRight: 8,
+    opacity: 0.85,
+  },
+  input: {
+    flex: 1,
+    height: 44,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  fabAdd: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+  },
+
+  // List
+  list: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 120, // leave room for footer
+  },
+
+  // Row card
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
-    elevation: 2,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    marginBottom: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  cardText: { flex: 1, fontSize: 16 },
-  badge: { backgroundColor: '#eee', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
-  badgeText: { fontWeight: 'bold' },
-  actions: { flexDirection: 'row', marginLeft: 12 },
-  actionBtn: { marginLeft: 8 },
-  emptyText: { textAlign: 'center', marginTop: 32 },
+  cardText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+
+  // Quantity badge
+  badge: {
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(127,127,127,0.15)',
+    marginLeft: 8,
+  },
+  badgeText: {
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+
+  // Row actions
+  actions: {
+    flexDirection: 'row',
+    marginLeft: 12,
+  },
+  actionBtn: {
+    marginLeft: 10,
+    padding: 6,
+    borderRadius: 10,
+  },
+
+  // Empty state
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 36,
+    fontSize: 15,
+    opacity: 0.7,
+  },
+
+  // Footer totals (pinned)
   footer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 0, left: 0, right: 0,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderTopWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
   },
-  totalLabel: { fontSize: 16 },
-  totalValue: { fontSize: 20, fontWeight: 'bold' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '85%', borderRadius: 8, padding: 16 },
-  modalTitle: { fontSize: 20, marginBottom: 12 },
-  modalInput: { borderWidth: 1, borderRadius: 6, padding: 8, marginBottom: 12 },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end' },
-  modalBtn: { padding: 10, borderRadius: 6, marginLeft: 12 },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  totalValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 18,
+  },
+  modalContent: {
+    width: '88%',
+    borderRadius: 16,
+    padding: 18,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 12,
+    letterSpacing: 0.2,
+  },
+  modalInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    marginBottom: 12,
+    backgroundColor: 'rgba(127,127,127,0.06)',
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  modalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginLeft: 12,
+  },
 });
