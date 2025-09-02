@@ -52,10 +52,12 @@ type SavedSummary = {
 };
 
 type SavedClientDetail = {
+  id: number;
   client: string;
   total: number;
   items: ClientItem[];
 };
+type ReceiptPayload = { client: string; total: number; items: ClientItem[] };
 
 export default function ClientScreen() {
   const { t } = useTranslation();
@@ -207,6 +209,7 @@ export default function ClientScreen() {
     try {
       const lines = await fetchClientItems(summary.id);
       setDetailModal({
+        id: summary.id, // <-- NEW
         client: summary.client,
         total: summary.total,
         items: lines.map((l) => ({
@@ -222,6 +225,22 @@ export default function ClientScreen() {
     }
   };
 
+  // put near other handlers
+  const confirmDeleteSaved = (id: number) => {
+    Alert.alert(
+      t("client.alert.confirmDeleteTitle"),
+      t("client.alert.confirmDeleteMessage"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("common.delete"),
+          style: "destructive",
+          onPress: () => handleDelete(id),
+        },
+      ]
+    );
+  };
+
   const handleDelete = async (id: number) => {
     try {
       await deleteSavedClient(id);
@@ -231,7 +250,7 @@ export default function ClientScreen() {
     }
   };
 
-  const shareReceipt = async (cart: SavedClientDetail) => {
+  const shareReceipt = async (cart: ReceiptPayload) => {
     const rows = cart.items
       .map(
         (it) => `
@@ -542,20 +561,7 @@ export default function ClientScreen() {
                   { backgroundColor: theme.card, shadowColor: theme.shadow },
                 ]}
                 onPress={() => openDetail(item)}
-                onLongPress={() =>
-                  Alert.alert(
-                    t("client.alert.confirmDeleteTitle"),
-                    t("client.alert.confirmDeleteMessage"),
-                    [
-                      { text: t("common.cancel"), style: "cancel" },
-                      {
-                        text: t("common.delete"),
-                        style: "destructive",
-                        onPress: () => handleDelete(item.id),
-                      },
-                    ]
-                  )
-                }
+                onLongPress={() => confirmDeleteSaved(item.id)}
               >
                 <FontAwesome
                   name="user"
@@ -566,9 +572,19 @@ export default function ClientScreen() {
                 <Text style={[styles.cardText, { color: theme.text }]}>
                   {item.client}
                 </Text>
-                <Text
-                  style={[styles.infoText, { color: theme.text }]}
-                >{`${currencySymbol}${item.total.toFixed(2)}`}</Text>
+                <Text style={[styles.infoText, { color: theme.text }]}>
+                  {`${currencySymbol}${item.total.toFixed(2)}`}
+                </Text>
+                <Pressable
+                  onPress={() => confirmDeleteSaved(item.id)}
+                  hitSlop={10}
+                  accessibilityLabel={t("client.a11y.deleteClient", {
+                    name: item.client,
+                  })}
+                  style={styles.trashBtn}
+                >
+                  <FontAwesome name="trash" size={18} color={theme.accent} />
+                </Pressable>
               </Pressable>
             )}
           />
@@ -700,6 +716,28 @@ export default function ClientScreen() {
                   <Text style={{ color: "#fff" }}>{t("client.sharePDF")}</Text>
                 </Pressable>
 
+                {/* NEW: Delete — destructive/outline */}
+                {detailModal && (
+                  <Pressable
+                    onPress={() => {
+                      confirmDeleteSaved(detailModal.id);
+                      setDetailModal(null);
+                    }}
+                    style={[
+                      styles.modalBtn,
+                      {
+                        borderWidth: 1,
+                        borderColor: "tomato",
+                        backgroundColor: "transparent",
+                      },
+                    ]}
+                  >
+                    <Text style={{ color: "tomato", fontWeight: "600" }}>
+                      {t("common.delete")}
+                    </Text>
+                  </Pressable>
+                )}
+
                 {/* Close — outline/secondary */}
                 <Pressable
                   onPress={() => setDetailModal(null)}
@@ -759,9 +797,9 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 8,                 // Android shadow
+    elevation: 8, // Android shadow
     zIndex: 10,
-    shadowColor: "#000",          // iOS shadow
+    shadowColor: "#000", // iOS shadow
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.18,
     shadowRadius: 20,
@@ -954,7 +992,12 @@ const styles = StyleSheet.create({
   detailItem: { flex: 1, fontSize: 16, fontWeight: "600" },
   detailQty: { width: 44, textAlign: "center", fontWeight: "700" },
   detailPrice: { width: 76, textAlign: "right", fontWeight: "700" },
-  detailTotal: { width: 86, textAlign: "right", marginLeft: 12, fontWeight: "800" },
+  detailTotal: {
+    width: 86,
+    textAlign: "right",
+    marginLeft: 12,
+    fontWeight: "800",
+  },
 
   // Total badges
   totalBadges: {
@@ -975,5 +1018,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     fontSize: 16,
     letterSpacing: 0.2,
+  },
+  trashBtn: {
+    marginLeft: 8,
+    padding: 6,
+    borderRadius: 8,
   },
 });

@@ -1,4 +1,4 @@
-// app/lib/db.ts
+// app/src/db.ts
 import type { SQLiteDatabase } from 'expo-sqlite';
 import * as SQLite from 'expo-sqlite';
 
