@@ -194,7 +194,7 @@ export default function ClientScreen() {
           article_id: it.id,
           quantity: it.quantity,
           price: it.unitPrice,
-          name: it.name, 
+          name: it.name,
         }))
       );
 
@@ -688,7 +688,7 @@ export default function ClientScreen() {
               </View>
               <ScrollView style={styles.detailList}>
                 {detailModal?.items.map((it, idx) => (
-                  <View key={idx} style={styles.detailRow}>
+                  <View key={idx} style={[styles.detailRow, idx % 2 ? styles.detailRowAlt : null]}>
                     <Text
                       style={[styles.detailItem, { color: theme.text }]}
                       numberOfLines={1}
@@ -926,21 +926,21 @@ const styles = StyleSheet.create({
   // Modals
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 18,
+    padding: 24,
   },
   modalBox: {
-    width: "100%",
-    maxWidth: 380,
-    borderRadius: 16,
-    padding: 20,
-    elevation: 10,
+    width: "92%",
+    maxWidth: 520,
+    borderRadius: 22,
+    padding: 22,
+    elevation: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 14 },
+    shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.18,
-    shadowRadius: 24,
+    shadowRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
   },
   modalIcon: { alignSelf: "center", marginBottom: 14 },
@@ -976,21 +976,35 @@ const styles = StyleSheet.create({
   detailHeader: {
     flexDirection: "row",
     alignItems: "center",
+    paddingBottom: 10,
     marginBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
+
   detailHeaderTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
-    marginLeft: 8,
+    marginLeft: 10,
     letterSpacing: 0.2,
   },
-  detailList: { maxHeight: 260, marginBottom: 16 },
+  detailList: {
+    maxHeight: 380,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   detailRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+detailRowAlt: {
+  backgroundColor: 'rgba(0,0,0,0.03)',
+},
+
   detailItem: { flex: 1, fontSize: 16, fontWeight: "600" },
   detailQty: { width: 44, textAlign: "center", fontWeight: "700" },
   detailPrice: { width: 76, textAlign: "right", fontWeight: "700" },

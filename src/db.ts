@@ -1,6 +1,6 @@
 // app/src/db.ts
-import type { SQLiteDatabase } from 'expo-sqlite';
-import * as SQLite from 'expo-sqlite';
+import type { SQLiteDatabase } from "expo-sqlite";
+import * as SQLite from "expo-sqlite";
 
 let _dbPromise: Promise<SQLiteDatabase> | null = null;
 
@@ -8,11 +8,23 @@ let _dbPromise: Promise<SQLiteDatabase> | null = null;
  * Open (or create) the database and ensure all tables exist.
  * Uses a single shared promise to avoid concurrent init races.
  */
+let _writeChain: Promise<any> = Promise.resolve();
+
+function withWriteLock<T>(op: () => Promise<T>): Promise<T> {
+  // chain the op onto the previous write, preventing overlap
+  const run = () => op().catch((e) => { throw e; });
+  _writeChain = _writeChain.then(run, run);
+  return _writeChain;
+}
+
+
 async function getDB(): Promise<SQLiteDatabase> {
   if (!_dbPromise) {
     _dbPromise = (async () => {
-      const db = await SQLite.openDatabaseAsync('stock-manager.db');
-
+      const db = await SQLite.openDatabaseAsync("stock-manager.db");
+      await db.execAsync(`PRAGMA journal_mode = WAL;`); // better read/write concurrency
+      await db.execAsync(`PRAGMA synchronous = NORMAL;`); // fine for mobile
+      await db.execAsync(`PRAGMA busy_timeout = 5000;`); // wait up to 5s instead of "database is locked"
       // ----- Main (China) & Secondary (Brazil) stock -----
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS main_stock (
@@ -28,6 +40,17 @@ async function getDB(): Promise<SQLiteDatabase> {
           quantity INTEGER NOT NULL
         );
       `);
+      // Ensure secondary_stock has a name column and backfill it (old installs)
+      try {
+        await db.execAsync(`ALTER TABLE secondary_stock ADD COLUMN name TEXT;`);
+        await db.execAsync(`
+    UPDATE secondary_stock AS s
+    SET name = (SELECT m.name FROM main_stock m WHERE m.id = s.id)
+    WHERE s.name IS NULL OR s.name = '';
+  `);
+      } catch (e) {
+        // Column already exists — ignore
+      }
 
       // ----- Pricing -----
       await db.execAsync(`
@@ -72,7 +95,21 @@ async function getDB(): Promise<SQLiteDatabase> {
           PRIMARY KEY (client_id, article_id)
         );
       `);
-
+      try {
+        await db.execAsync(
+          `ALTER TABLE saved_client_items ADD COLUMN name TEXT;`
+        );
+        // Best-effort backfill for legacy rows
+        await db.execAsync(`
+    UPDATE saved_client_items AS sci
+    SET name = (
+      SELECT m.name FROM main_stock m WHERE m.id = sci.article_id
+    )
+    WHERE sci.name IS NULL;
+  `);
+      } catch (e) {
+        // Column likely already exists — ignore
+      }
       // ----- Settings -----
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS settings (
@@ -82,7 +119,7 @@ async function getDB(): Promise<SQLiteDatabase> {
       `);
 
       return db;
-    })().catch(err => {
+    })().catch((err) => {
       _dbPromise = null;
       throw err;
     });
@@ -90,14 +127,33 @@ async function getDB(): Promise<SQLiteDatabase> {
   return _dbPromise;
 }
 
-
 /** Types used throughout the app */
-export type Article              = { id: number; name: string; quantity: number };
-export type Price                = { article_id: number; price: number };
-export type ClientItem           = { article_id: number; quantity: number; name: string; price: number };
-export type ClientPin            = { id: number; name: string; latitude: number; longitude: number };
-export type SavedClientSummary   = { id: number; client: string; created_at: number; total: number };
-export type SavedClientItem      = { article_id: number; name: string; quantity: number; price: number };
+export type Article = { id: number; name: string; quantity: number };
+export type Price = { article_id: number; price: number };
+export type ClientItem = {
+  article_id: number;
+  quantity: number;
+  name: string;
+  price: number;
+};
+export type ClientPin = {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+};
+export type SavedClientSummary = {
+  id: number;
+  client: string;
+  created_at: number;
+  total: number;
+};
+export type SavedClientItem = {
+  article_id: number;
+  name: string;
+  quantity: number;
+  price: number;
+};
 
 /** Ensure DB is open and initialized */
 export async function initDB(): Promise<void> {
@@ -108,7 +164,10 @@ export async function initDB(): Promise<void> {
 // China Stock API (stored in main_stock)
 ////////////////////////////////////////////////////////////////////////////////
 
-export async function addArticle(name: string, quantity: number): Promise<void> {
+export async function addArticle(
+  name: string,
+  quantity: number
+): Promise<void> {
   const db = await getDB();
   await db.runAsync(
     `INSERT INTO main_stock (name, quantity)
@@ -162,7 +221,14 @@ export async function fetchMainStock(): Promise<Article[]> {
 
 export async function fetchSecondaryStock(): Promise<Article[]> {
   const db = await getDB();
-  return db.getAllAsync<Article>(`SELECT * FROM secondary_stock;`);
+  return db.getAllAsync<Article>(`
+    SELECT
+      s.id,
+      COALESCE(s.name, m.name, '') AS name,
+      s.quantity
+    FROM secondary_stock s
+    LEFT JOIN main_stock m ON m.id = s.id;
+  `);
 }
 
 export async function moveToSecondary(id: number, qty: number): Promise<void> {
@@ -175,7 +241,7 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
       id
     );
     if (!main || main.quantity < qty) {
-      throw new Error('Insufficient China stock');
+      throw new Error("Insufficient China stock");
     }
     const { name } = main;
 
@@ -192,10 +258,30 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
     );
 
     // 3) upsert into secondary_stock using the cached name
-    const sec = await db.getFirstAsync<{ quantity: number }>(
-      `SELECT quantity FROM secondary_stock WHERE id = ?;`,
+    const sec = await db.getFirstAsync<{ quantity: number; name?: string }>(
+      `SELECT quantity, name FROM secondary_stock WHERE id = ?;`,
       id
     );
+
+    if (sec) {
+      await db.runAsync(
+        `UPDATE secondary_stock
+       SET quantity = quantity + ?,
+           name = COALESCE(name, ?)
+     WHERE id = ?;`,
+        qty,
+        name, // <- from main_stock fetched at the start
+        id
+      );
+    } else {
+      await db.runAsync(
+        `INSERT INTO secondary_stock (id, name, quantity) VALUES (?, ?, ?);`,
+        id,
+        name,
+        qty
+      );
+    }
+
     if (sec) {
       await db.runAsync(
         `UPDATE secondary_stock SET quantity = quantity + ? WHERE id = ?;`,
@@ -232,7 +318,8 @@ export async function sellSecondary(id: number, qty: number): Promise<void> {
       `SELECT quantity FROM secondary_stock WHERE id = ?;`,
       id
     );
-    if (!sec || sec.quantity < qty) throw new Error('Insufficient Brazil stock');
+    if (!sec || sec.quantity < qty)
+      throw new Error("Insufficient Brazil stock");
 
     await db.runAsync(
       `UPDATE secondary_stock SET quantity = quantity - ? WHERE id = ?;`,
@@ -261,7 +348,7 @@ export async function returnToMain(id: number, qty: number): Promise<void> {
       id
     );
     if (!sec || sec.quantity < qty) {
-      throw new Error('Insufficient Brazil stock to return');
+      throw new Error("Insufficient Brazil stock to return");
     }
     const { name } = sec;
 
@@ -300,7 +387,6 @@ export async function returnToMain(id: number, qty: number): Promise<void> {
   }
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // Pricing API
 ////////////////////////////////////////////////////////////////////////////////
@@ -310,7 +396,10 @@ export async function fetchPrices(): Promise<Price[]> {
   return db.getAllAsync<Price>(`SELECT * FROM prices;`);
 }
 
-export async function setPrice(article_id: number, price: number): Promise<void> {
+export async function setPrice(
+  article_id: number,
+  price: number
+): Promise<void> {
   const db = await getDB();
   await db.runAsync(
     `INSERT INTO prices (article_id, price)
@@ -342,7 +431,10 @@ export async function fetchClient(): Promise<ClientItem[]> {
   );
 }
 
-export async function addToClient(article_id: number, quantity: number): Promise<void> {
+export async function addToClient(
+  article_id: number,
+  quantity: number
+): Promise<void> {
   const db = await getDB();
   await db.runAsync(
     `INSERT INTO client (article_id, quantity)
@@ -386,14 +478,18 @@ export async function saveClient(
     const row = await db.getFirstAsync<{ id: number }>(
       `SELECT last_insert_rowid() AS id;`
     );
-    if (!row) throw new Error('Failed to retrieve new client ID');
+    if (!row) throw new Error("Failed to retrieve new client ID");
     const clientId = row.id;
 
     for (const it of items) {
       await db.runAsync(
         `INSERT INTO saved_client_items (client_id, article_id, quantity, price, name)
            VALUES (?, ?, ?, ?, ?);`,
-        clientId, it.article_id, it.quantity, it.price, it.name
+        clientId,
+        it.article_id,
+        it.quantity,
+        it.price,
+        it.name
       );
     }
 
@@ -421,7 +517,9 @@ export async function fetchSavedClients(): Promise<SavedClientSummary[]> {
   );
 }
 
-export async function fetchClientItems(clientId: number): Promise<SavedClientItem[]> {
+export async function fetchClientItems(
+  clientId: number
+): Promise<SavedClientItem[]> {
   const db = await getDB();
   return db.getAllAsync<SavedClientItem>(
     `
@@ -437,7 +535,6 @@ export async function fetchClientItems(clientId: number): Promise<SavedClientIte
     clientId
   );
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Client Pins API
@@ -467,13 +564,15 @@ export async function deleteClient(id: number): Promise<void> {
   await db.runAsync(`DELETE FROM clients WHERE id=?;`, id);
 }
 
-
 export async function deleteSavedClient(clientId: number): Promise<void> {
   const db = await getDB();
   await db.execAsync(`BEGIN TRANSACTION;`);
   try {
     // Remove associated items
-    await db.runAsync(`DELETE FROM saved_client_items WHERE client_id = ?;`, clientId);
+    await db.runAsync(
+      `DELETE FROM saved_client_items WHERE client_id = ?;`,
+      clientId
+    );
     // Remove the client
     await db.runAsync(`DELETE FROM saved_clients WHERE id = ?;`, clientId);
     await db.execAsync(`COMMIT;`);
@@ -482,8 +581,6 @@ export async function deleteSavedClient(clientId: number): Promise<void> {
     throw error;
   }
 }
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Settings API
@@ -515,4 +612,3 @@ export async function getSetting(
   );
   return row?.value ?? defaultValue;
 }
-
