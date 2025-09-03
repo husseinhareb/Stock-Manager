@@ -355,22 +355,116 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Root
   container: { flex: 1 },
-  attribution: { position: 'absolute', right: 8, bottom: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  attrText: { fontSize: 10, color: '#333' },
 
+  // Map attribution pill
+  attribution: {
+    position: "absolute",
+    right: 12,
+    bottom: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  attrText: { fontSize: 11, fontWeight: "600", opacity: 0.9 },
+
+  // -------- Modals (shared) --------
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center',
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
   },
   modal: {
-    width: '85%', maxHeight: '70%', borderRadius: 12, padding: 16, elevation: 6,
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2,
+    width: "92%",
+    maxWidth: 520,
+    maxHeight: "78%",
+    borderRadius: 22,
+    padding: 22,
+    elevation: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  modalTitle: { fontSize: 20, fontWeight: '600', marginBottom: 12 },
-  modalItem: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1 },
-  modalItemText: { fontSize: 16 },
-  modalClose: { alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 12, marginTop: 12 },
-  modalList: { marginVertical: 8 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
-  cell: { flex: 1, textAlign: 'center', fontSize: 14 },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 14,
+    letterSpacing: 0.2,
+  },
+
+  // ----- Select Client Modal (list of saved clients to pin) -----
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginHorizontal: 4,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  modalItemText: {
+    fontSize: 16,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  modalClose: {
+    alignSelf: "flex-end",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 12,
+    borderWidth: 1,
+  },
+
+  // ----- Client Detail Modal (bought articles) -----
+  // Scrollable list container with nice frame
+  modalList: {
+    maxHeight: 380,
+    marginTop: 4,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  // Row styling similar to client.tsx
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  // Optional alt background (apply if you later alternate rows)
+  detailRowAlt: {
+    backgroundColor: "rgba(0,0,0,0.03)",
+  },
+  // Generic cell used in this file (kept same key, upgraded look)
+  cell: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+
+  // (Optional) If you later decide to split columns like in client.tsx:
+  // detailItem: { flex: 1, fontSize: 16, fontWeight: "600" },
+  // detailQty:  { width: 44, textAlign: "center", fontWeight: "700" },
+  // detailPrice:{ width: 76, textAlign: "right",  fontWeight: "700" },
+  // detailTotal:{ width: 86, textAlign: "right",  marginLeft: 12, fontWeight: "800" },
 });
