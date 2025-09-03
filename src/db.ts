@@ -4,27 +4,119 @@ import * as SQLite from "expo-sqlite";
 
 let _dbPromise: Promise<SQLiteDatabase> | null = null;
 
-/**
- * Open (or create) the database and ensure all tables exist.
- * Uses a single shared promise to avoid concurrent init races.
- */
+/** Serialize all writes to avoid “database is locked”. */
 let _writeChain: Promise<any> = Promise.resolve();
-
 function withWriteLock<T>(op: () => Promise<T>): Promise<T> {
-  // chain the op onto the previous write, preventing overlap
-  const run = () => op().catch((e) => { throw e; });
+  const run = () =>
+    op().catch((e) => {
+      throw e;
+    });
   _writeChain = _writeChain.then(run, run);
   return _writeChain;
 }
 
+// app/src/db.ts
+async function migrateSchema(db: SQLiteDatabase): Promise<void> {
+  // track migrations with PRAGMA user_version
+  const ver =
+    (await db.getFirstAsync<{ user_version: number }>(`PRAGMA user_version;`))
+      ?.user_version ?? 0;
 
+  // v1 -> v2: add ON DELETE CASCADE to prices, client, secondary_stock
+  if (ver < 2) {
+    await db.execAsync(`BEGIN IMMEDIATE;`);
+
+    // secondary_stock with CASCADE
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS secondary_stock_new (
+        id       INTEGER PRIMARY KEY REFERENCES main_stock(id) ON DELETE CASCADE,
+        name     TEXT,
+        quantity INTEGER NOT NULL CHECK (quantity >= 0)
+      );
+    `);
+    await db.execAsync(`
+      INSERT OR REPLACE INTO secondary_stock_new (id, name, quantity)
+      SELECT id, name, quantity FROM secondary_stock;
+    `);
+    await db.execAsync(`DROP TABLE secondary_stock;`);
+    await db.execAsync(
+      `ALTER TABLE secondary_stock_new RENAME TO secondary_stock;`
+    );
+
+    // prices with CASCADE
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS prices_new (
+        article_id INTEGER PRIMARY KEY REFERENCES main_stock(id) ON DELETE CASCADE,
+        price      REAL NOT NULL CHECK (price >= 0)
+      );
+    `);
+    await db.execAsync(`
+      INSERT OR REPLACE INTO prices_new (article_id, price)
+      SELECT article_id, price FROM prices;
+    `);
+    await db.execAsync(`DROP TABLE prices;`);
+    await db.execAsync(`ALTER TABLE prices_new RENAME TO prices;`);
+
+    // client with CASCADE
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS client_new (
+        article_id INTEGER PRIMARY KEY REFERENCES main_stock(id) ON DELETE CASCADE,
+        quantity   INTEGER NOT NULL CHECK (quantity >= 0)
+      );
+    `);
+    await db.execAsync(`
+      INSERT OR REPLACE INTO client_new (article_id, quantity)
+      SELECT article_id, quantity FROM client;
+    `);
+    await db.execAsync(`DROP TABLE client;`);
+    await db.execAsync(`ALTER TABLE client_new RENAME TO client;`);
+
+    await db.execAsync(`PRAGMA user_version = 2;`);
+    await db.execAsync(`COMMIT;`);
+  }
+
+  // v2 -> v3: decouple saved_client_items from main_stock (keep snapshots even if product is deleted)
+  if (ver < 3) {
+    await db.execAsync(`BEGIN IMMEDIATE;`);
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS saved_client_items_new (
+        client_id   INTEGER NOT NULL REFERENCES saved_clients(id) ON DELETE CASCADE,
+        article_id  INTEGER NOT NULL, -- no FK on purpose (snapshot)
+        quantity    INTEGER NOT NULL CHECK (quantity >= 0),
+        price       REAL    NOT NULL CHECK (price >= 0),
+        name        TEXT,
+        PRIMARY KEY (client_id, article_id)
+      );
+    `);
+    await db.execAsync(`
+      INSERT OR REPLACE INTO saved_client_items_new (client_id, article_id, quantity, price, name)
+      SELECT client_id, article_id, quantity, price, name FROM saved_client_items;
+    `);
+    await db.execAsync(`DROP TABLE saved_client_items;`);
+    await db.execAsync(
+      `ALTER TABLE saved_client_items_new RENAME TO saved_client_items;`
+    );
+
+    await db.execAsync(`PRAGMA user_version = 3;`);
+    await db.execAsync(`COMMIT;`);
+  }
+}
+
+/**
+ * Open (or create) the database and ensure all tables exist.
+ * Uses a single shared promise to avoid concurrent init races.
+ */
 async function getDB(): Promise<SQLiteDatabase> {
   if (!_dbPromise) {
     _dbPromise = (async () => {
       const db = await SQLite.openDatabaseAsync("stock-manager.db");
-      await db.execAsync(`PRAGMA journal_mode = WAL;`); // better read/write concurrency
-      await db.execAsync(`PRAGMA synchronous = NORMAL;`); // fine for mobile
-      await db.execAsync(`PRAGMA busy_timeout = 5000;`); // wait up to 5s instead of "database is locked"
+
+      // Better concurrency & fewer “locked” errors
+      await db.execAsync(`PRAGMA foreign_keys = ON;`);
+      await db.execAsync(`PRAGMA journal_mode = WAL;`);
+      await db.execAsync(`PRAGMA synchronous = NORMAL;`);
+      await db.execAsync(`PRAGMA busy_timeout = 5000;`);
+
       // ----- Main (China) & Secondary (Brazil) stock -----
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS main_stock (
@@ -33,24 +125,24 @@ async function getDB(): Promise<SQLiteDatabase> {
           quantity INTEGER NOT NULL
         );
       `);
+
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS secondary_stock (
           id       INTEGER PRIMARY KEY REFERENCES main_stock(id),
-          name     TEXT    NOT NULL,
+          name     TEXT,                -- may be NULL on very old installs; we backfill
           quantity INTEGER NOT NULL
         );
       `);
-      // Ensure secondary_stock has a name column and backfill it (old installs)
+
+      // Ensure secondary_stock has name and backfill it (old installs might not)
       try {
         await db.execAsync(`ALTER TABLE secondary_stock ADD COLUMN name TEXT;`);
-        await db.execAsync(`
-    UPDATE secondary_stock AS s
-    SET name = (SELECT m.name FROM main_stock m WHERE m.id = s.id)
-    WHERE s.name IS NULL OR s.name = '';
-  `);
-      } catch (e) {
-        // Column already exists — ignore
-      }
+      } catch {}
+      await db.execAsync(`
+        UPDATE secondary_stock AS s
+           SET name = (SELECT m.name FROM main_stock m WHERE m.id = s.id)
+         WHERE (s.name IS NULL OR s.name = '');
+      `);
 
       // ----- Pricing -----
       await db.execAsync(`
@@ -60,7 +152,7 @@ async function getDB(): Promise<SQLiteDatabase> {
         );
       `);
 
-      // ----- In‑Memory Client (legacy) -----
+      // ----- In-Memory Client (legacy) -----
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS client (
           article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
@@ -86,30 +178,30 @@ async function getDB(): Promise<SQLiteDatabase> {
           created_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
         );
       `);
+
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS saved_client_items (
           client_id     INTEGER NOT NULL REFERENCES saved_clients(id) ON DELETE CASCADE,
           article_id    INTEGER NOT NULL REFERENCES main_stock(id),
           quantity      INTEGER NOT NULL,
           price         REAL    NOT NULL,
+          name          TEXT,
           PRIMARY KEY (client_id, article_id)
         );
       `);
+
+      // Try to add a snapshot 'name' column (no-op if it already exists) + backfill
       try {
         await db.execAsync(
           `ALTER TABLE saved_client_items ADD COLUMN name TEXT;`
         );
-        // Best-effort backfill for legacy rows
-        await db.execAsync(`
-    UPDATE saved_client_items AS sci
-    SET name = (
-      SELECT m.name FROM main_stock m WHERE m.id = sci.article_id
-    )
-    WHERE sci.name IS NULL;
-  `);
-      } catch (e) {
-        // Column likely already exists — ignore
-      }
+      } catch {}
+      await db.execAsync(`
+        UPDATE saved_client_items AS sci
+           SET name = (SELECT m.name FROM main_stock m WHERE m.id = sci.article_id)
+         WHERE sci.name IS NULL OR sci.name = '';
+      `);
+
       // ----- Settings -----
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS settings (
@@ -117,6 +209,8 @@ async function getDB(): Promise<SQLiteDatabase> {
           value TEXT NOT NULL
         );
       `);
+
+      await migrateSchema(db);
 
       return db;
     })().catch((err) => {
@@ -168,15 +262,17 @@ export async function addArticle(
   name: string,
   quantity: number
 ): Promise<void> {
-  const db = await getDB();
-  await db.runAsync(
-    `INSERT INTO main_stock (name, quantity)
-       VALUES (?, ?)
-     ON CONFLICT(name) DO UPDATE
-       SET quantity = main_stock.quantity + excluded.quantity;`,
-    name,
-    quantity
-  );
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.runAsync(
+      `INSERT INTO main_stock (name, quantity)
+         VALUES (?, ?)
+       ON CONFLICT(name) DO UPDATE
+         SET quantity = main_stock.quantity + excluded.quantity;`,
+      name,
+      quantity
+    );
+  });
 }
 
 export async function fetchArticles(): Promise<Article[]> {
@@ -197,18 +293,23 @@ export async function updateArticle(
   name: string,
   quantity: number
 ): Promise<void> {
-  const db = await getDB();
-  await db.runAsync(
-    `UPDATE main_stock SET name = ?, quantity = ? WHERE id = ?;`,
-    name,
-    quantity,
-    id
-  );
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.runAsync(
+      `UPDATE main_stock SET name = ?, quantity = ? WHERE id = ?;`,
+      name,
+      quantity,
+      id
+    );
+  });
 }
 
 export async function deleteArticle(id: number): Promise<void> {
-  const db = await getDB();
-  await db.runAsync(`DELETE FROM main_stock WHERE id = ?;`, id);
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.runAsync(`DELETE FROM main_stock WHERE id = ?;`, id);
+    // CASCADE clears prices, client, secondary_stock. Saved snapshots remain.
+  });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -231,160 +332,122 @@ export async function fetchSecondaryStock(): Promise<Article[]> {
   `);
 }
 
+// app/src/db.ts
 export async function moveToSecondary(id: number, qty: number): Promise<void> {
-  const db = await getDB();
-  await db.execAsync(`SAVEPOINT sp_move;`);
-  try {
-    // fetch both quantity and name before any deletion
-    const main = await db.getFirstAsync<{ quantity: number; name: string }>(
-      `SELECT quantity, name FROM main_stock WHERE id = ?;`,
-      id
-    );
-    if (!main || main.quantity < qty) {
-      throw new Error("Insufficient China stock");
-    }
-    const { name } = main;
-
-    // 1) subtract from main_stock
-    await db.runAsync(
-      `UPDATE main_stock SET quantity = quantity - ? WHERE id = ?;`,
-      qty,
-      id
-    );
-    // 2) delete the main_stock row if now zero
-    await db.runAsync(
-      `DELETE FROM main_stock WHERE id = ? AND quantity <= 0;`,
-      id
-    );
-
-    // 3) upsert into secondary_stock using the cached name
-    const sec = await db.getFirstAsync<{ quantity: number; name?: string }>(
-      `SELECT quantity, name FROM secondary_stock WHERE id = ?;`,
-      id
-    );
-
-    if (sec) {
-      await db.runAsync(
-        `UPDATE secondary_stock
-       SET quantity = quantity + ?,
-           name = COALESCE(name, ?)
-     WHERE id = ?;`,
-        qty,
-        name, // <- from main_stock fetched at the start
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.execAsync(`SAVEPOINT sp_move;`);
+    try {
+      const main = await db.getFirstAsync<{ quantity: number; name: string }>(
+        `SELECT quantity, name FROM main_stock WHERE id = ?;`,
         id
       );
-    } else {
-      await db.runAsync(
-        `INSERT INTO secondary_stock (id, name, quantity) VALUES (?, ?, ?);`,
-        id,
-        name,
-        qty
-      );
-    }
+      if (!main || main.quantity < qty)
+        throw new Error("Insufficient China stock");
 
-    if (sec) {
+      // subtract from main_stock
       await db.runAsync(
-        `UPDATE secondary_stock SET quantity = quantity + ? WHERE id = ?;`,
+        `UPDATE main_stock SET quantity = quantity - ? WHERE id = ?;`,
         qty,
         id
       );
-    } else {
+
+      // ❌ REMOVE THIS (it causes FK failures)
+      // await db.runAsync(`DELETE FROM main_stock WHERE id = ? AND quantity <= 0;`, id);
+
+      // upsert into secondary_stock with cached name
       await db.runAsync(
         `INSERT INTO secondary_stock (id, name, quantity)
-           VALUES (?, ?, ?);`,
+         VALUES (?, ?, ?)
+         ON CONFLICT(id) DO UPDATE
+           SET quantity = secondary_stock.quantity + excluded.quantity,
+               name     = COALESCE(secondary_stock.name, excluded.name);`,
         id,
-        name,
+        main.name,
         qty
       );
-    }
-    // 4) delete the secondary_stock row if now zero
-    await db.runAsync(
-      `DELETE FROM secondary_stock WHERE id = ? AND quantity <= 0;`,
-      id
-    );
 
-    await db.execAsync(`RELEASE SAVEPOINT sp_move;`);
-  } catch (e) {
-    await db.execAsync(`ROLLBACK TO SAVEPOINT sp_move;`);
-    throw e;
-  }
+      await db.execAsync(`RELEASE SAVEPOINT sp_move;`);
+    } catch (e) {
+      await db.execAsync(`ROLLBACK TO SAVEPOINT sp_move;`);
+      throw e;
+    }
+  });
 }
 
 export async function sellSecondary(id: number, qty: number): Promise<void> {
-  const db = await getDB();
-  await db.execAsync(`SAVEPOINT sp_sell;`);
-  try {
-    const sec = await db.getFirstAsync<{ quantity: number }>(
-      `SELECT quantity FROM secondary_stock WHERE id = ?;`,
-      id
-    );
-    if (!sec || sec.quantity < qty)
-      throw new Error("Insufficient Brazil stock");
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.execAsync(`SAVEPOINT sp_sell;`);
+    try {
+      const sec = await db.getFirstAsync<{ quantity: number }>(
+        `SELECT quantity FROM secondary_stock WHERE id = ?;`,
+        id
+      );
+      if (!sec || sec.quantity < qty)
+        throw new Error("Insufficient Brazil stock");
 
-    await db.runAsync(
-      `UPDATE secondary_stock SET quantity = quantity - ? WHERE id = ?;`,
-      qty,
-      id
-    );
-    await db.runAsync(
-      `DELETE FROM secondary_stock WHERE id = ? AND quantity <= 0;`,
-      id
-    );
+      await db.runAsync(
+        `UPDATE secondary_stock SET quantity = quantity - ? WHERE id = ?;`,
+        qty,
+        id
+      );
+      await db.runAsync(
+        `DELETE FROM secondary_stock WHERE id = ? AND quantity <= 0;`,
+        id
+      );
 
-    await db.execAsync(`RELEASE SAVEPOINT sp_sell;`);
-  } catch (e) {
-    await db.execAsync(`ROLLBACK TO SAVEPOINT sp_sell;`);
-    throw e;
-  }
+      await db.execAsync(`RELEASE SAVEPOINT sp_sell;`);
+    } catch (e) {
+      await db.execAsync(`ROLLBACK TO SAVEPOINT sp_sell;`);
+      throw e;
+    }
+  });
 }
 
 export async function returnToMain(id: number, qty: number): Promise<void> {
-  const db = await getDB();
-  await db.execAsync(`BEGIN TRANSACTION;`);
-  try {
-    // 1) grab both quantity & name from Brazil stock
-    const sec = await db.getFirstAsync<{ quantity: number; name: string }>(
-      `SELECT quantity, name FROM secondary_stock WHERE id = ?;`,
-      id
-    );
-    if (!sec || sec.quantity < qty) {
-      throw new Error("Insufficient Brazil stock to return");
+  return withWriteLock(async () => {
+    const db = await getDB();
+    // Grab the write lock up front for fewer conflicts
+    await db.execAsync(`BEGIN IMMEDIATE;`);
+    try {
+      // 1) grab both quantity & name from Brazil stock
+      const sec = await db.getFirstAsync<{ quantity: number; name: string }>(
+        `SELECT quantity, name FROM secondary_stock WHERE id = ?;`,
+        id
+      );
+      if (!sec || sec.quantity < qty) {
+        throw new Error("Insufficient Brazil stock to return");
+      }
+
+      // 2) subtract from secondary_stock and delete if zero
+      await db.runAsync(
+        `UPDATE secondary_stock SET quantity = quantity - ? WHERE id = ?;`,
+        qty,
+        id
+      );
+      await db.runAsync(
+        `DELETE FROM secondary_stock WHERE id = ? AND quantity <= 0;`,
+        id
+      );
+
+      // 3) upsert back into main_stock (China)
+      await db.runAsync(
+        `INSERT INTO main_stock (id, name, quantity)
+           VALUES (?, ?, ?)
+         ON CONFLICT(id) DO UPDATE
+           SET quantity = main_stock.quantity + excluded.quantity;`,
+        id,
+        sec.name,
+        qty
+      );
+
+      await db.execAsync(`COMMIT;`);
+    } catch (e) {
+      await db.execAsync(`ROLLBACK;`);
+      throw e;
     }
-    const { name } = sec;
-
-    // 2) subtract from secondary_stock
-    await db.runAsync(
-      `UPDATE secondary_stock 
-         SET quantity = quantity - ? 
-       WHERE id = ?;`,
-      qty,
-      id
-    );
-
-    // 3) delete the Brazil row if it hit zero
-    await db.runAsync(
-      `DELETE FROM secondary_stock 
-        WHERE id = ? 
-          AND quantity <= 0;`,
-      id
-    );
-
-    // 4) **upsert** back into main_stock (China)
-    await db.runAsync(
-      `INSERT INTO main_stock (id, name, quantity)
-         VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE
-         SET quantity = main_stock.quantity + excluded.quantity;`,
-      id,
-      name,
-      qty
-    );
-
-    await db.execAsync(`COMMIT;`);
-  } catch (e) {
-    await db.execAsync(`ROLLBACK;`);
-    throw e;
-  }
+  });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -400,19 +463,21 @@ export async function setPrice(
   article_id: number,
   price: number
 ): Promise<void> {
-  const db = await getDB();
-  await db.runAsync(
-    `INSERT INTO prices (article_id, price)
-       VALUES (?, ?)
-     ON CONFLICT(article_id) DO UPDATE
-       SET price = excluded.price;`,
-    article_id,
-    price
-  );
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.runAsync(
+      `INSERT INTO prices (article_id, price)
+         VALUES (?, ?)
+       ON CONFLICT(article_id) DO UPDATE
+         SET price = excluded.price;`,
+      article_id,
+      price
+    );
+  });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// In‑Memory Client API (legacy)
+// In-Memory Client API (legacy)
 ////////////////////////////////////////////////////////////////////////////////
 
 export async function fetchClient(): Promise<ClientItem[]> {
@@ -435,20 +500,24 @@ export async function addToClient(
   article_id: number,
   quantity: number
 ): Promise<void> {
-  const db = await getDB();
-  await db.runAsync(
-    `INSERT INTO client (article_id, quantity)
-       VALUES (?,?)
-     ON CONFLICT(article_id) DO UPDATE
-       SET quantity=excluded.quantity;`,
-    article_id,
-    quantity
-  );
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.runAsync(
+      `INSERT INTO client (article_id, quantity)
+         VALUES (?,?)
+       ON CONFLICT(article_id) DO UPDATE
+         SET quantity=excluded.quantity;`,
+      article_id,
+      quantity
+    );
+  });
 }
 
 export async function clearClient(): Promise<void> {
-  const db = await getDB();
-  await db.execAsync(`DELETE FROM client;`);
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.execAsync(`DELETE FROM client;`);
+  });
 }
 
 export async function fetchClientTotal(): Promise<number> {
@@ -471,33 +540,38 @@ export async function saveClient(
   client: string,
   items: { article_id: number; quantity: number; price: number; name: string }[]
 ): Promise<void> {
-  const db = await getDB();
-  await db.execAsync(`BEGIN TRANSACTION;`);
-  try {
-    await db.runAsync(`INSERT INTO saved_clients (client) VALUES (?);`, client);
-    const row = await db.getFirstAsync<{ id: number }>(
-      `SELECT last_insert_rowid() AS id;`
-    );
-    if (!row) throw new Error("Failed to retrieve new client ID");
-    const clientId = row.id;
-
-    for (const it of items) {
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.execAsync(`BEGIN IMMEDIATE;`);
+    try {
       await db.runAsync(
-        `INSERT INTO saved_client_items (client_id, article_id, quantity, price, name)
-           VALUES (?, ?, ?, ?, ?);`,
-        clientId,
-        it.article_id,
-        it.quantity,
-        it.price,
-        it.name
+        `INSERT INTO saved_clients (client) VALUES (?);`,
+        client
       );
-    }
+      const row = await db.getFirstAsync<{ id: number }>(
+        `SELECT last_insert_rowid() AS id;`
+      );
+      if (!row) throw new Error("Failed to retrieve new client ID");
+      const clientId = row.id;
 
-    await db.execAsync(`COMMIT;`);
-  } catch (e) {
-    await db.execAsync(`ROLLBACK;`);
-    throw e;
-  }
+      for (const it of items) {
+        await db.runAsync(
+          `INSERT INTO saved_client_items (client_id, article_id, quantity, price, name)
+             VALUES (?, ?, ?, ?, ?);`,
+          clientId,
+          it.article_id,
+          it.quantity,
+          it.price,
+          it.name
+        );
+      }
+
+      await db.execAsync(`COMMIT;`);
+    } catch (e) {
+      await db.execAsync(`ROLLBACK;`);
+      throw e;
+    }
+  });
 }
 
 export async function fetchSavedClients(): Promise<SavedClientSummary[]> {
@@ -550,36 +624,40 @@ export async function addClient(
   latitude: number,
   longitude: number
 ): Promise<void> {
-  const db = await getDB();
-  await db.runAsync(
-    `INSERT INTO clients (name, latitude, longitude) VALUES (?,?,?);`,
-    name,
-    latitude,
-    longitude
-  );
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.runAsync(
+      `INSERT INTO clients (name, latitude, longitude) VALUES (?,?,?);`,
+      name,
+      latitude,
+      longitude
+    );
+  });
 }
 
 export async function deleteClient(id: number): Promise<void> {
-  const db = await getDB();
-  await db.runAsync(`DELETE FROM clients WHERE id=?;`, id);
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.runAsync(`DELETE FROM clients WHERE id=?;`, id);
+  });
 }
 
 export async function deleteSavedClient(clientId: number): Promise<void> {
-  const db = await getDB();
-  await db.execAsync(`BEGIN TRANSACTION;`);
-  try {
-    // Remove associated items
-    await db.runAsync(
-      `DELETE FROM saved_client_items WHERE client_id = ?;`,
-      clientId
-    );
-    // Remove the client
-    await db.runAsync(`DELETE FROM saved_clients WHERE id = ?;`, clientId);
-    await db.execAsync(`COMMIT;`);
-  } catch (error) {
-    await db.execAsync(`ROLLBACK;`);
-    throw error;
-  }
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.execAsync(`BEGIN IMMEDIATE;`);
+    try {
+      await db.runAsync(
+        `DELETE FROM saved_client_items WHERE client_id = ?;`,
+        clientId
+      );
+      await db.runAsync(`DELETE FROM saved_clients WHERE id = ?;`, clientId);
+      await db.execAsync(`COMMIT;`);
+    } catch (error) {
+      await db.execAsync(`ROLLBACK;`);
+      throw error;
+    }
+  });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -587,20 +665,20 @@ export async function deleteSavedClient(clientId: number): Promise<void> {
 ////////////////////////////////////////////////////////////////////////////////
 
 export async function saveSetting(key: string, value: string): Promise<void> {
-  const db = await getDB();
-  await db.runAsync(
-    `INSERT INTO settings (key, value)
-       VALUES (?, ?)
-     ON CONFLICT(key) DO UPDATE
-       SET value = excluded.value;`,
-    key,
-    value
-  );
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.runAsync(
+      `INSERT INTO settings (key, value)
+         VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE
+         SET value = excluded.value;`,
+      key,
+      value
+    );
+  });
 }
 
-/**
- * Retrieve a setting value by key, or return defaultValue if not found.
- */
+/** Retrieve a setting value by key, or return defaultValue if not found. */
 export async function getSetting(
   key: string,
   defaultValue: string
