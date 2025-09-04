@@ -15,9 +15,8 @@ function withWriteLock<T>(op: () => Promise<T>): Promise<T> {
   return _writeChain;
 }
 
-// app/src/db.ts
+// --- Migrations ---
 async function migrateSchema(db: SQLiteDatabase): Promise<void> {
-  // track migrations with PRAGMA user_version
   const ver =
     (await db.getFirstAsync<{ user_version: number }>(`PRAGMA user_version;`))
       ?.user_version ?? 0;
@@ -38,10 +37,8 @@ async function migrateSchema(db: SQLiteDatabase): Promise<void> {
       INSERT OR REPLACE INTO secondary_stock_new (id, name, quantity)
       SELECT id, name, quantity FROM secondary_stock;
     `);
-    await db.execAsync(`DROP TABLE secondary_stock;`);
-    await db.execAsync(
-      `ALTER TABLE secondary_stock_new RENAME TO secondary_stock;`
-    );
+    await db.execAsync(`DROP TABLE IF EXISTS secondary_stock;`);
+    await db.execAsync(`ALTER TABLE secondary_stock_new RENAME TO secondary_stock;`);
 
     // prices with CASCADE
     await db.execAsync(`
@@ -54,7 +51,7 @@ async function migrateSchema(db: SQLiteDatabase): Promise<void> {
       INSERT OR REPLACE INTO prices_new (article_id, price)
       SELECT article_id, price FROM prices;
     `);
-    await db.execAsync(`DROP TABLE prices;`);
+    await db.execAsync(`DROP TABLE IF EXISTS prices;`);
     await db.execAsync(`ALTER TABLE prices_new RENAME TO prices;`);
 
     // client with CASCADE
@@ -68,7 +65,7 @@ async function migrateSchema(db: SQLiteDatabase): Promise<void> {
       INSERT OR REPLACE INTO client_new (article_id, quantity)
       SELECT article_id, quantity FROM client;
     `);
-    await db.execAsync(`DROP TABLE client;`);
+    await db.execAsync(`DROP TABLE IF EXISTS client;`);
     await db.execAsync(`ALTER TABLE client_new RENAME TO client;`);
 
     await db.execAsync(`PRAGMA user_version = 2;`);
@@ -92,13 +89,29 @@ async function migrateSchema(db: SQLiteDatabase): Promise<void> {
       INSERT OR REPLACE INTO saved_client_items_new (client_id, article_id, quantity, price, name)
       SELECT client_id, article_id, quantity, price, name FROM saved_client_items;
     `);
-    await db.execAsync(`DROP TABLE saved_client_items;`);
-    await db.execAsync(
-      `ALTER TABLE saved_client_items_new RENAME TO saved_client_items;`
-    );
+    await db.execAsync(`DROP TABLE IF EXISTS saved_client_items;`);
+    await db.execAsync(`ALTER TABLE saved_client_items_new RENAME TO saved_client_items;`);
 
     await db.execAsync(`PRAGMA user_version = 3;`);
     await db.execAsync(`COMMIT;`);
+  }
+
+  // v3 -> v4: add ordering support via main_stock.position and backfill
+  if (ver < 4) {
+    await db.execAsync(`BEGIN IMMEDIATE;`);
+    try {
+      try {
+        await db.execAsync(`ALTER TABLE main_stock ADD COLUMN position INTEGER;`);
+      } catch {}
+      // Backfill any NULL positions to current id (stable ordering)
+      await db.execAsync(`UPDATE main_stock SET position = id WHERE position IS NULL;`);
+      await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_main_stock_position ON main_stock(position);`);
+      await db.execAsync(`PRAGMA user_version = 4;`);
+      await db.execAsync(`COMMIT;`);
+    } catch (e) {
+      await db.execAsync(`ROLLBACK;`);
+      throw e;
+    }
   }
 }
 
@@ -122,15 +135,16 @@ async function getDB(): Promise<SQLiteDatabase> {
         CREATE TABLE IF NOT EXISTS main_stock (
           id       INTEGER PRIMARY KEY AUTOINCREMENT,
           name     TEXT    NOT NULL UNIQUE,
-          quantity INTEGER NOT NULL
+          quantity INTEGER NOT NULL CHECK (quantity >= 0),
+          position INTEGER
         );
       `);
 
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS secondary_stock (
           id       INTEGER PRIMARY KEY REFERENCES main_stock(id),
-          name     TEXT,                -- may be NULL on very old installs; we backfill
-          quantity INTEGER NOT NULL
+          name     TEXT,
+          quantity INTEGER NOT NULL CHECK (quantity >= 0)
         );
       `);
 
@@ -148,7 +162,7 @@ async function getDB(): Promise<SQLiteDatabase> {
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS prices (
           article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
-          price      REAL    NOT NULL
+          price      REAL    NOT NULL CHECK (price >= 0)
         );
       `);
 
@@ -156,7 +170,7 @@ async function getDB(): Promise<SQLiteDatabase> {
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS client (
           article_id INTEGER PRIMARY KEY REFERENCES main_stock(id),
-          quantity   INTEGER NOT NULL
+          quantity   INTEGER NOT NULL CHECK (quantity >= 0)
         );
       `);
 
@@ -192,9 +206,7 @@ async function getDB(): Promise<SQLiteDatabase> {
 
       // Try to add a snapshot 'name' column (no-op if it already exists) + backfill
       try {
-        await db.execAsync(
-          `ALTER TABLE saved_client_items ADD COLUMN name TEXT;`
-        );
+        await db.execAsync(`ALTER TABLE saved_client_items ADD COLUMN name TEXT;`);
       } catch {}
       await db.execAsync(`
         UPDATE saved_client_items AS sci
@@ -210,7 +222,12 @@ async function getDB(): Promise<SQLiteDatabase> {
         );
       `);
 
+      // Run migrations (idempotent)
       await migrateSchema(db);
+
+      // Ensure position is filled for fresh DBs too
+      await db.execAsync(`UPDATE main_stock SET position = id WHERE position IS NULL;`);
+      await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_main_stock_position ON main_stock(position);`);
 
       return db;
     })().catch((err) => {
@@ -222,7 +239,7 @@ async function getDB(): Promise<SQLiteDatabase> {
 }
 
 /** Types used throughout the app */
-export type Article = { id: number; name: string; quantity: number };
+export type Article = { id: number; name: string; quantity: number; position: number };
 export type Price = { article_id: number; price: number };
 export type ClientItem = {
   article_id: number;
@@ -265,8 +282,8 @@ export async function addArticle(
   return withWriteLock(async () => {
     const db = await getDB();
     await db.runAsync(
-      `INSERT INTO main_stock (name, quantity)
-         VALUES (?, ?)
+      `INSERT INTO main_stock (name, quantity, position)
+         VALUES (?, ?, (SELECT IFNULL(MAX(position),0) + 1 FROM main_stock))
        ON CONFLICT(name) DO UPDATE
          SET quantity = main_stock.quantity + excluded.quantity;`,
       name,
@@ -277,7 +294,7 @@ export async function addArticle(
 
 export async function fetchArticles(): Promise<Article[]> {
   const db = await getDB();
-  return db.getAllAsync<Article>(`SELECT * FROM main_stock;`);
+  return db.getAllAsync<Article>(`SELECT id, name, quantity, position FROM main_stock ORDER BY position ASC, name ASC;`);
 }
 
 export async function fetchTotalQuantity(): Promise<number> {
@@ -309,6 +326,29 @@ export async function deleteArticle(id: number): Promise<void> {
     const db = await getDB();
     await db.runAsync(`DELETE FROM main_stock WHERE id = ?;`, id);
     // CASCADE clears prices, client, secondary_stock. Saved snapshots remain.
+    // We intentionally do not renumber positions here; reorders or inserts will handle gaps.
+  });
+}
+
+/** Persist a new ordering of all main_stock items by their IDs (first ID becomes position 1, etc). */
+export async function reorderArticles(orderedIds: number[]): Promise<void> {
+  return withWriteLock(async () => {
+    const db = await getDB();
+    await db.execAsync(`BEGIN IMMEDIATE;`);
+    try {
+      // Assign sequential positions based on provided order
+      for (let i = 0; i < orderedIds.length; i++) {
+        await db.runAsync(
+          `UPDATE main_stock SET position = ? WHERE id = ?;`,
+          i + 1,
+          orderedIds[i]
+        );
+      }
+      await db.execAsync(`COMMIT;`);
+    } catch (e) {
+      await db.execAsync(`ROLLBACK;`);
+      throw e;
+    }
   });
 }
 
@@ -326,13 +366,14 @@ export async function fetchSecondaryStock(): Promise<Article[]> {
     SELECT
       s.id,
       COALESCE(s.name, m.name, '') AS name,
-      s.quantity
+      s.quantity,
+      COALESCE(m.position, s.id) AS position
     FROM secondary_stock s
-    LEFT JOIN main_stock m ON m.id = s.id;
+    LEFT JOIN main_stock m ON m.id = s.id
+    ORDER BY position ASC, name ASC;
   `);
 }
 
-// app/src/db.ts
 export async function moveToSecondary(id: number, qty: number): Promise<void> {
   return withWriteLock(async () => {
     const db = await getDB();
@@ -351,9 +392,6 @@ export async function moveToSecondary(id: number, qty: number): Promise<void> {
         qty,
         id
       );
-
-      // ❌ REMOVE THIS (it causes FK failures)
-      // await db.runAsync(`DELETE FROM main_stock WHERE id = ? AND quantity <= 0;`, id);
 
       // upsert into secondary_stock with cached name
       await db.runAsync(
@@ -408,7 +446,6 @@ export async function sellSecondary(id: number, qty: number): Promise<void> {
 export async function returnToMain(id: number, qty: number): Promise<void> {
   return withWriteLock(async () => {
     const db = await getDB();
-    // Grab the write lock up front for fewer conflicts
     await db.execAsync(`BEGIN IMMEDIATE;`);
     try {
       // 1) grab both quantity & name from Brazil stock
@@ -431,10 +468,10 @@ export async function returnToMain(id: number, qty: number): Promise<void> {
         id
       );
 
-      // 3) upsert back into main_stock (China)
+      // 3) upsert back into main_stock (China) with stable position
       await db.runAsync(
-        `INSERT INTO main_stock (id, name, quantity)
-           VALUES (?, ?, ?)
+        `INSERT INTO main_stock (id, name, quantity, position)
+           VALUES (?, ?, ?, (SELECT IFNULL(MAX(position),0) + 1 FROM main_stock))
          ON CONFLICT(id) DO UPDATE
            SET quantity = main_stock.quantity + excluded.quantity;`,
         id,
@@ -477,7 +514,7 @@ export async function setPrice(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// In-Memory Client API (legacy)
+// In-Memory Client (legacy)
 ////////////////////////////////////////////////////////////////////////////////
 
 export async function fetchClient(): Promise<ClientItem[]> {

@@ -1,11 +1,10 @@
 // app/(tabs)/china.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Text,
   View,
   StyleSheet,
   TextInput,
-  FlatList,
   Platform,
   KeyboardAvoidingView,
   TouchableOpacity,
@@ -17,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 
 import {
   initDB,
@@ -25,6 +25,7 @@ import {
   fetchTotalQuantity,
   updateArticle,
   deleteArticle,
+  reorderArticles,
   Article,
 } from '../../src/db';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -100,21 +101,69 @@ export default function ChinaStockScreen() {
       .catch(console.warn);
   };
 
-  const renderItem = ({ item }: { item: Article }) => (
-    <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-      <Text style={[styles.cardText, { color: theme.text }]}>{item.name}</Text>
-      <View style={styles.badge}>
-        <Text style={[styles.badgeText, { color: theme.badgeText }]}>{item.quantity}</Text>
+  // Only show items with quantity > 0, but preserve full ordering underneath.
+  const visibleArticles = useMemo(
+    () => articles.filter(a => a.quantity > 0),
+    [articles]
+  );
+
+  const commitReorder = useCallback(
+    (newVisibleOrder: Article[]) => {
+      // Merge the new order of the visible subset back into the full list order
+      const newVisibleIdQueue = newVisibleOrder.map(a => a.id);
+      const fullOrderedIds: number[] = [];
+
+      for (const a of articles) {
+        if (a.quantity > 0) {
+          // Replace each visible item with the next in the newly-ordered sequence
+          fullOrderedIds.push(newVisibleIdQueue.shift()!);
+        } else {
+          // Keep hidden (qty=0) items where they are
+          fullOrderedIds.push(a.id);
+        }
+      }
+
+      // Persist to DB and optimistically update UI
+      reorderArticles(fullOrderedIds)
+        .then(() => loadData())
+        .catch(console.warn);
+
+      setArticles(prev => {
+        const idToPos = new Map<number, number>();
+        fullOrderedIds.forEach((id, idx) => idToPos.set(id, idx + 1));
+        const merged = prev.map(a => ({ ...a, position: idToPos.get(a.id) ?? a.position }));
+        return merged.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      });
+    },
+    [articles, loadData]
+  );
+
+  const renderItem = useCallback(
+    ({ item, drag, isActive }: RenderItemParams<Article>) => (
+      <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow, borderColor: theme.border, opacity: isActive ? 0.9 : 1 }]}>
+        <Pressable onLongPress={drag} hitSlop={8} style={styles.dragHandle}>
+          <MaterialIcons name="drag-handle" size={24} color={theme.icon} />
+        </Pressable>
+
+        <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>
+          {item.name}
+        </Text>
+
+        <View style={styles.badge}>
+          <Text style={[styles.badgeText, { color: theme.badgeText }]}>{item.quantity}</Text>
+        </View>
+
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => startEdit(item)} style={styles.actionBtn}>
+            <MaterialIcons name="edit" size={20} color={theme.icon} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
+            <MaterialIcons name="delete" size={20} color={theme.icon} />
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.actions}>
-        <TouchableOpacity onPress={() => startEdit(item)} style={styles.actionBtn}>
-          <MaterialIcons name="edit" size={20} color={theme.icon} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
-          <MaterialIcons name="delete" size={20} color={theme.icon} />
-        </TouchableOpacity>
-      </View>
-    </View>
+    ),
+    [theme]
   );
 
   return (
@@ -151,10 +200,13 @@ export default function ChinaStockScreen() {
             </TouchableOpacity>
           </View>
 
-          <FlatList
-            data={articles.filter(a => a.quantity > 0)}
-            keyExtractor={item => item.id.toString()}
+          <DraggableFlatList
+            data={visibleArticles}
+            keyExtractor={(item) => item.id.toString()}
             renderItem={renderItem}
+            onDragEnd={({ data }) => commitReorder(data)}
+            activationDistance={8}
+            containerStyle={{ flex: 1 }}
             contentContainerStyle={styles.list}
             ListEmptyComponent={
               <Text style={[styles.emptyText, { color: theme.placeholder }]}>
@@ -163,16 +215,16 @@ export default function ChinaStockScreen() {
             }
           />
 
-          <View style={[styles.footer, { backgroundColor: theme.footer }]}>
+          <View style={[styles.footer, { backgroundColor: theme.footer, borderColor: theme.border }]}>
             <Text style={[styles.totalLabel, { color: theme.text }]}>{t('china.total')}</Text>
             <Text style={[styles.totalValue, { color: theme.primary }]}>{total}</Text>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => {setEditing(null)}}>
+      <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => { setEditing(null); }}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background, borderColor: theme.border }]}>
             <Text style={[styles.modalTitle, { color: theme.primary }]}>
               {t('china.editTitle')}
             </Text>
@@ -209,7 +261,6 @@ export default function ChinaStockScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Top heading (if used)
   heading: {
     fontSize: 28,
     fontWeight: '800',
@@ -234,7 +285,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     marginRight: 10,
-    backgroundColor: 'rgba(127,127,127,0.06)', // soft fill that works on light/dark
+    backgroundColor: 'rgba(127,127,127,0.06)',
   },
   inputIcon: {
     marginRight: 8,
@@ -262,7 +313,7 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 120, // leave room for footer
+    paddingBottom: 120,
   },
 
   // Row card
@@ -270,7 +321,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     borderRadius: 14,
     marginBottom: 10,
     elevation: 3,
@@ -279,6 +330,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  dragHandle: {
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    marginRight: 6,
+    borderRadius: 8,
   },
   cardText: {
     flex: 1,
