@@ -1,4 +1,6 @@
 // app/_layout.tsx
+// Must import gesture handler at the very top before any navigation imports
+import 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
 import '../i18n';
 import i18n from '../i18n';
