@@ -1,15 +1,15 @@
 // app/_layout.tsx
 // Must import gesture handler at the very top before any navigation imports
-import 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
-import '../i18n';
-import i18n from '../i18n';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { ThemeProvider } from '@/src/theme/ThemeProvider';
 import { FontAwesome } from '@expo/vector-icons';
 import { Drawer } from 'expo-router/drawer';
 import React from 'react';
 import { I18nextProvider, useTranslation } from 'react-i18next';
-import { ThemeProvider } from '@/src/theme/ThemeProvider';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import 'react-native-gesture-handler';
+import '../i18n';
+import i18n from '../i18n';
 
 export default function RootLayout() {
   return (
