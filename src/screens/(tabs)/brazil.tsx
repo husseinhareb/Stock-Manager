@@ -1,7 +1,7 @@
 // src/screens/(tabs)/brazil.tsx
+import BrazilMap from '@/components/BrazilMap';
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import BrazilMap from '@/components/BrazilMap';
 
 export default function BrazilScreen() {
 	return (

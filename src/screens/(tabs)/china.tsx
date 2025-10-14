@@ -1,35 +1,35 @@
 // src/screens/(tabs)/china.tsx
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-  Text,
-  View,
-  StyleSheet,
-  TextInput,
-  Platform,
-  KeyboardAvoidingView,
-  TouchableOpacity,
-  Modal,
-  Pressable,
-  Keyboard,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
-
 import {
-  initDB,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import {
   addArticle,
+  Article,
+  deleteArticle,
   fetchArticles,
   fetchTotalQuantity,
-  updateArticle,
-  deleteArticle,
+  initDB,
   reorderArticles,
-  Article,
+  updateArticle,
 } from '@/src/db';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors } from '@/constants/Colors';
 
 export default function ChinaStockScreen() {
   const scheme = useColorScheme();
