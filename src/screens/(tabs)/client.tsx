@@ -1,5 +1,24 @@
 // src/screens/(tabs)/client.tsx
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import type { Article, Price } from '@/src/db';
+import {
+  deleteSavedClient,
+  fetchClientItems,
+  fetchPrices,
+  fetchSavedClients,
+  fetchSecondaryStock,
+  getSetting,
+  saveClient as persistClient,
+  sellSecondary,
+} from '@/src/db';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   BackHandler,
@@ -16,25 +35,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import type { Article, Price } from '@/src/db';
-import {
-  fetchSecondaryStock,
-  fetchPrices,
-  fetchSavedClients,
-  fetchClientItems,
-  sellSecondary,
-  saveClient as persistClient,
-  deleteSavedClient,
-  getSetting,
-} from '@/src/db';
 
 type ClientItem = {
   id: number;

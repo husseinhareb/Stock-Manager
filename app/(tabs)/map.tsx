@@ -1,20 +1,22 @@
 // app/(tabs)/map.tsx
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   FlatList,
   Modal,
   Pressable,
-  SafeAreaView,
+
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import type { ClientPin, SavedClientSummary } from '../../src/db';
 import {
   addClient,
@@ -24,7 +26,6 @@ import {
   fetchSavedClients,
   getSetting,
 } from '../../src/db';
-import { useTranslation } from 'react-i18next';
 
 type ClientItem = { id: number; name: string; quantity: number; unitPrice: number };
 

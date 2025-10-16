@@ -3,8 +3,7 @@ module.exports = function (api) {
 
   return {
     presets: ['babel-preset-expo'],
-    // expo-router needs its babel plugin before other plugins
-    // react-native-reanimated plugin must still be listed last
-    plugins: ['expo-router/babel', 'react-native-reanimated/plugin'],
+    // react-native-reanimated plugin must be listed last
+    plugins: ['react-native-reanimated/plugin'],
   };
 };

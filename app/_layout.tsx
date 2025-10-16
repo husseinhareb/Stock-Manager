@@ -8,6 +8,7 @@ import { Drawer } from 'expo-router/drawer';
 import React from 'react';
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '../i18n';
 import i18n from '../i18n';
 
@@ -15,7 +16,9 @@ export default function RootLayout() {
   return (
     <I18nextProvider i18n={i18n}>
       <ThemeProvider>
-        <ThemedDrawer />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <ThemedDrawer />
+        </GestureHandlerRootView>
       </ThemeProvider>
     </I18nextProvider>
   );

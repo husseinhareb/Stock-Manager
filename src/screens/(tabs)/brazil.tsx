@@ -208,7 +208,18 @@ export default function BrazilStockScreen() {
 				<Text style={{ width: 60, textAlign: 'center', color: theme.text, fontSize: 16 }}>
 					{`${currencySymbol}${unit.toFixed(2)}`}
 				</Text>
-				<Text style={{ width: 60, textAlign: 'center', color: theme.text, fontSize: 16 }}>
+				<Text
+					style={[styles.cellAmount, { color: theme.text }]}
+					numberOfLines={1}
+					allowFontScaling={false}
+				>
+					{`${currencySymbol}${unit.toFixed(2)}`}
+				</Text>
+				<Text
+					style={[styles.cellAmount, { color: theme.text }]}
+					numberOfLines={1}
+					allowFontScaling={false}
+				>
 					{`${currencySymbol}${total}`}
 				</Text>
 				<TextInput
@@ -456,6 +467,14 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		marginBottom: 20,
 		// leave background transparent so your theme card shows through
+	},
+
+	// Amount cells (unit price / total) — keep on one line and avoid wrapping
+	cellAmount: {
+		minWidth: 72,
+		textAlign: 'center',
+		fontSize: 16,
+		flexShrink: 0,
 	},
 	modalActions: { flexDirection: 'row', justifyContent: 'flex-end' },
 	modalBtn: {
