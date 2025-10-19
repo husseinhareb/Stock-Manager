@@ -237,11 +237,14 @@ export default function ChinaStockScreen() {
 
   const renderItem = useCallback(
     ({ item, drag, isActive }: RenderItemParams<Article>) => (
-      <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow, borderColor: theme.border, opacity: isActive ? 0.9 : 1 }]}>
-        <Pressable onLongPress={drag} hitSlop={8} style={styles.dragHandle}>
-          <MaterialIcons name="drag-handle" size={24} color={theme.icon} />
-        </Pressable>
-
+      <Pressable
+        onLongPress={drag}
+        delayLongPress={200}
+        style={[
+          styles.card,
+          { backgroundColor: theme.card, shadowColor: theme.shadow, borderColor: theme.border, opacity: isActive ? 0.9 : 1 },
+        ]}
+      >
         <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>
           {item.name}
         </Text>
@@ -258,7 +261,7 @@ export default function ChinaStockScreen() {
             <MaterialIcons name="delete" size={20} color={theme.icon} />
           </TouchableOpacity>
         </View>
-      </View>
+      </Pressable>
     ),
     [theme]
   );

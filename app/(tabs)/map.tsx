@@ -157,132 +157,140 @@ export default function MapScreen() {
     // Leaflet + MapTiler raster (free tier). Attribution required.
     // Long-press detection: single finger, no drag/zoom, 500ms hold.
     return `
-<!doctype html><html><head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-  html, body, #map { height:100%; margin:0; padding:0; }
-  .marker-dot { width:14px; height:14px; border-radius:7px; border:2px solid #fff; background:#3b82f6; }
-</style>
-</head><body>
-<div id="map"></div>
+  <!doctype html><html><head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map { height:100%; margin:0; padding:0; }
+    .marker-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+    .marker-dot { width:18px; height:18px; border-radius:18px; border:3px solid #fff; background: linear-gradient(180deg,#34d399,#059669); box-shadow: 0 6px 14px rgba(3,7,18,0.32); }
+    .marker-label { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.72); color: #fff; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px rgba(2,6,23,0.28); }
+    .marker-label::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); bottom: -6px; width: 10px; height: 6px; background: rgba(0,0,0,0.72); clip-path: polygon(50% 100%, 0 0, 100% 0); }
+  </style>
+  </head><body>
+  <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-  const RN = window.ReactNativeWebView;
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const RN = window.ReactNativeWebView;
 
-  const map = L.map('map', { zoomControl: true, attributionControl: true })
-    .setView([-14.2350, -51.9253], 4);
+    const map = L.map('map', { zoomControl: true, attributionControl: true })
+      .setView([-14.2350, -51.9253], 4);
 
-  // MapTiler tiles (free tier)
-  const key = ${JSON.stringify(MAPTILER_KEY || "")};
-  const url = key
-    ? \`https://api.maptiler.com/maps/streets/{z}/{x}/{y}@2x.png?key=\${key}\`
-    : 'https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=__MISSING__';
-  L.tileLayer(url, {
-    maxZoom: 20, tileSize: 512, zoomOffset: -1,
-    attribution: '&copy; MapTiler &copy; OpenStreetMap contributors'
-  }).addTo(map);
+    // MapTiler tiles (free tier)
+    const key = ${JSON.stringify(MAPTILER_KEY || "")};
+    const url = key
+      ? \`https://api.maptiler.com/maps/streets/{z}/{x}/{y}@2x.png?key=\${key}\`
+      : 'https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=__MISSING__';
+    L.tileLayer(url, {
+      maxZoom: 20, tileSize: 512, zoomOffset: -1,
+      attribution: '&copy; MapTiler &copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-  // ---------- Robust long-press: single finger + no movement ----------
-  const LONG_PRESS_MS = 500;   // hold duration
-  const MOVE_TOLERANCE = 10;   // px of allowed jitter
+    // ---------- Robust long-press: single finger + no movement ----------
+    const LONG_PRESS_MS = 500;   // hold duration
+    const MOVE_TOLERANCE = 10;   // px of allowed jitter
 
-  let pressTimer = null;
-  let startPt = null;          // container point captured at start
-  let mouseDown = false;
+    let pressTimer = null;
+    let startPt = null;          // container point captured at start
+    let mouseDown = false;
 
-  function clearPress() {
-    if (pressTimer) clearTimeout(pressTimer);
-    pressTimer = null;
-    startPt = null;
-    mouseDown = false;
-  }
-
-  function scheduleLongPress(latlngGetter) {
-    if (pressTimer) clearTimeout(pressTimer);
-    pressTimer = setTimeout(() => {
-      if (!startPt) return;
-      const latlng = latlngGetter();
-      if (!latlng) return;
-      RN && RN.postMessage(JSON.stringify({ type:'longPress', lat: latlng.lat, lng: latlng.lng }));
-      clearPress();
-    }, LONG_PRESS_MS);
-  }
-
-  // ---- Touch handlers (mobile) ----
-  function onTouchStart(e) {
-    if (!e.touches || e.touches.length !== 1) { // multi-touch (pinch) -> cancel
-      clearPress();
-      return;
+    function clearPress() {
+      if (pressTimer) clearTimeout(pressTimer);
+      pressTimer = null;
+      startPt = null;
+      mouseDown = false;
     }
-    const t = e.touches[0];
-    startPt = map.mouseEventToContainerPoint(t);
-    scheduleLongPress(() => map.containerPointToLatLng(startPt));
-  }
 
-  function onTouchMove(e) {
-    if (!pressTimer) return;
-    if (!e.touches || e.touches.length !== 1) { clearPress(); return; }
-    const t = e.touches[0];
-    const pt = map.mouseEventToContainerPoint(t);
-    const dx = pt.x - startPt.x, dy = pt.y - startPt.y;
-    if (Math.hypot(dx, dy) > MOVE_TOLERANCE) clearPress(); // user is panning
-  }
+    function scheduleLongPress(latlngGetter) {
+      if (pressTimer) clearTimeout(pressTimer);
+      pressTimer = setTimeout(() => {
+        if (!startPt) return;
+        const latlng = latlngGetter();
+        if (!latlng) return;
+        RN && RN.postMessage(JSON.stringify({ type:'longPress', lat: latlng.lat, lng: latlng.lng }));
+        clearPress();
+      }, LONG_PRESS_MS);
+    }
 
-  function onTouchEnd() { clearPress(); }
-  function onTouchCancel() { clearPress(); }
+    // ---- Touch handlers (mobile) ----
+    function onTouchStart(e) {
+      if (!e.touches || e.touches.length !== 1) { // multi-touch (pinch) -> cancel
+        clearPress();
+        return;
+      }
+      const t = e.touches[0];
+      startPt = map.mouseEventToContainerPoint(t);
+      scheduleLongPress(() => map.containerPointToLatLng(startPt));
+    }
 
-  // ---- Mouse handlers (optional; for simulators/desktops) ----
-  function onMouseDown(e) {
-    mouseDown = true;
-    startPt = map.mouseEventToContainerPoint(e);
-    scheduleLongPress(() => map.containerPointToLatLng(startPt));
-  }
-  function onMouseMove(e) {
-    if (!mouseDown || !pressTimer) return;
-    const pt = map.mouseEventToContainerPoint(e);
-    const dx = pt.x - startPt.x, dy = pt.y - startPt.y;
-    if (Math.hypot(dx, dy) > MOVE_TOLERANCE) clearPress();
-  }
-  function onMouseUp() { clearPress(); }
-  function onMouseLeave() { clearPress(); }
+    function onTouchMove(e) {
+      if (!pressTimer) return;
+      if (!e.touches || e.touches.length !== 1) { clearPress(); return; }
+      const t = e.touches[0];
+      const pt = map.mouseEventToContainerPoint(t);
+      const dx = pt.x - startPt.x, dy = pt.y - startPt.y;
+      if (Math.hypot(dx, dy) > MOVE_TOLERANCE) clearPress(); // user is panning
+    }
 
-  // Extra safety: cancel if Leaflet starts moving/zooming
-  map.on('dragstart zoomstart movestart', clearPress);
+    function onTouchEnd() { clearPress(); }
+    function onTouchCancel() { clearPress(); }
 
-  // Attach listeners
-  const el = document.getElementById('map');
-  el.addEventListener('touchstart', onTouchStart, { passive: true });
-  el.addEventListener('touchmove', onTouchMove, { passive: true });
-  el.addEventListener('touchend', onTouchEnd, { passive: true });
-  el.addEventListener('touchcancel', onTouchCancel, { passive: true });
+    // ---- Mouse handlers (optional; for simulators/desktops) ----
+    function onMouseDown(e) {
+      mouseDown = true;
+      startPt = map.mouseEventToContainerPoint(e);
+      scheduleLongPress(() => map.containerPointToLatLng(startPt));
+    }
+    function onMouseMove(e) {
+      if (!mouseDown || !pressTimer) return;
+      const pt = map.mouseEventToContainerPoint(e);
+      const dx = pt.x - startPt.x, dy = pt.y - startPt.y;
+      if (Math.hypot(dx, dy) > MOVE_TOLERANCE) clearPress();
+    }
+    function onMouseUp() { clearPress(); }
+    function onMouseLeave() { clearPress(); }
 
-  el.addEventListener('mousedown', onMouseDown);
-  el.addEventListener('mousemove', onMouseMove);
-  el.addEventListener('mouseup', onMouseUp);
-  el.addEventListener('mouseleave', onMouseLeave);
+    // Extra safety: cancel if Leaflet starts moving/zooming
+    map.on('dragstart zoomstart movestart', clearPress);
 
-  // ---------- Markers bridge ----------
-  let layer = L.layerGroup().addTo(map);
-  function setMarkers(list) {
-    layer.clearLayers();
-    (list || []).forEach(m => {
-      const marker = L.marker([m.latitude, m.longitude]);
-      marker.on('click', () => RN && RN.postMessage(JSON.stringify({ type:'markerPress', id: m.id })));
-      marker.addTo(layer);
-    });
-  }
-  window.__setMarkers = setMarkers;
-</script>
-</body></html>
-`;
+    // Attach listeners
+    const el = document.getElementById('map');
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchCancel, { passive: true });
+
+    el.addEventListener('mousedown', onMouseDown);
+    el.addEventListener('mousemove', onMouseMove);
+    el.addEventListener('mouseup', onMouseUp);
+    el.addEventListener('mouseleave', onMouseLeave);
+
+    // ---------- Markers bridge (styled divIcons with labels) ----------
+    let layer = L.layerGroup().addTo(map);
+    function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function setMarkers(list) {
+      layer.clearLayers();
+      (list || []).forEach(m => {
+    const safeName = escapeHtml(m.name || '');
+    const markHtml = '<div class="marker-wrap"><div class="marker-label">' + safeName + '</div><div class="marker-dot"></div></div>';
+    const icon = L.divIcon({ className: '', html: markHtml, iconSize: [140, 40], iconAnchor: [70, 18] });
+        const marker = L.marker([m.latitude, m.longitude], { icon });
+        marker.on('click', () => RN && RN.postMessage(JSON.stringify({ type:'markerPress', id: m.id })));
+        marker.addTo(layer);
+      });
+    }
+    window.__setMarkers = setMarkers;
+  </script>
+  </body></html>
+  `;
   }, []);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView edges={["left", "right"]} style={[styles.container, { backgroundColor: theme.background }]}> 
       <WebView
+        style={{ flex: 1, backgroundColor: 'transparent' }}
         ref={webRef}
         originWhitelist={['*']}
         source={{ html }}
