@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "install excel import deps",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install"
+			],
+			"problemMatcher": [
+				"$npm"
+			],
+			"group": "build"
+		}
+	]
+}

@@ -1,9 +1,12 @@
 // src/screens/(tabs)/china.tsx
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -17,6 +20,7 @@ import {
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import XLSX from 'xlsx';
 
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -43,6 +47,7 @@ export default function ChinaStockScreen() {
   const [editing, setEditing] = useState<null | Article>(null);
   const [editName, setEditName] = useState('');
   const [editQuantity, setEditQuantity] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     initDB().catch(console.warn);
@@ -76,6 +81,103 @@ export default function ChinaStockScreen() {
       })
       .catch(console.warn);
   };
+
+  // Excel import: pick file, parse ITEM/QTY columns, insert rows
+  const handleImport = useCallback(async () => {
+    try {
+      setIsImporting(true);
+      const res = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ],
+        multiple: false,
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled) return;
+      const file = res.assets?.[0];
+      if (!file) return;
+
+      // Read as base64 then parse with XLSX
+      const b64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const wb = XLSX.read(b64, { type: 'base64' });
+      const firstSheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[firstSheetName];
+      if (!ws) throw new Error('No worksheet found');
+
+      // Convert sheet to 2D array for flexible header detection
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false }) as any[];
+      if (!rows.length) throw new Error('Sheet is empty');
+
+      // Find header row containing ITEM and QTY (case-insensitive, spaces tolerant)
+      let headerRowIndex = -1;
+      let itemCol = -1;
+      let qtyCol = -1;
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r];
+        for (let c = 0; c < row.length; c++) {
+          const cell = String(row[c] ?? '').trim().toLowerCase();
+          if (cell === 'item') {
+            itemCol = c;
+          }
+          if (cell === 'qty' || cell === 'quantity') {
+            qtyCol = c;
+          }
+        }
+        if (itemCol !== -1 && qtyCol !== -1) {
+          headerRowIndex = r;
+          break;
+        } else {
+          itemCol = -1; qtyCol = -1; // reset and continue searching
+        }
+      }
+      if (headerRowIndex === -1) throw new Error('Could not find ITEM and QTY headers');
+
+      // Parse data rows after header
+      const toInsert: { name: string; quantity: number }[] = [];
+      for (let r = headerRowIndex + 1; r < rows.length; r++) {
+        const row = rows[r];
+        const nameRaw = String(row[itemCol] ?? '').trim();
+        const name = nameRaw;
+
+  // Stop parsing on TOTAL, EOF or IP PACKING markers (case-insensitive)
+  const low = name.toLowerCase().replace(/[:\s]+$/,'');
+  if (low === 'total' || low === 'eof' || low.includes('packing')) break;
+
+        const qtyRaw = row[qtyCol];
+        if (!name) continue;
+        const qty = Number(qtyRaw);
+        if (!Number.isFinite(qty)) continue;
+        if (qty <= 0) continue;
+        toInsert.push({ name, quantity: Math.floor(qty) });
+      }
+
+      if (!toInsert.length) {
+        Alert.alert(t('china.import.title', { defaultValue: 'Import' }), t('china.import.empty', { defaultValue: 'No valid rows found.' }));
+        return;
+      }
+
+      // Insert sequentially to preserve write lock semantics
+      for (const row of toInsert) {
+        try {
+          await addArticle(row.name, row.quantity);
+        } catch (e) {
+          // continue on individual failure, but log
+          console.warn('Failed to insert row', row, e);
+        }
+      }
+
+      await loadData();
+      Alert.alert(
+        t('china.import.title', { defaultValue: 'Import' }),
+        t('china.import.success', { defaultValue: `Imported ${toInsert.length} different items.` })
+      );
+    } catch (e: any) {
+      Alert.alert(t('china.import.title', { defaultValue: 'Import' }), e.message || String(e));
+    } finally {
+      setIsImporting(false);
+    }
+  }, [loadData, t]);
 
   const startEdit = (item: Article) => {
     setEditing(item);
@@ -192,6 +294,9 @@ export default function ChinaStockScreen() {
             </View>
             <TouchableOpacity onPress={handleAdd} style={[styles.fabAdd, { backgroundColor: theme.accent }]}>
               <MaterialIcons name="add" size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity disabled={isImporting} onPress={handleImport} style={[styles.fabAdd, { backgroundColor: isImporting ? '#aaa' : theme.primary, marginLeft: 8 }]}>
+              <MaterialIcons name="file-upload" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
 
