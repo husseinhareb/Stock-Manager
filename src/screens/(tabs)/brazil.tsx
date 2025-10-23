@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import {
 	Alert,
 	Animated,
+	Easing,
 	FlatList,
 	Keyboard,
 	KeyboardAvoidingView,
@@ -156,13 +157,15 @@ export default function BrazilStockScreen() {
 	const renderMoveItem = ({ item }: { item: Article }) => {
 		const key = `move-${item.id}`;
 		return (
-				<Pressable
-					onLongPress={(e) => startDrag(item, 'main', e.nativeEvent)}
+			<Pressable
+				{...(panResponder.current ? panResponder.current.panHandlers : {})}
+				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
+				onLongPress={(e) => startDrag(item, 'main', e.nativeEvent)}
 				delayLongPress={220}
 				style={({ pressed }) => [
 					styles.card,
-					{ backgroundColor: theme.card, shadowColor: theme.shadow },
-					pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+					{ backgroundColor: theme.card, shadowColor: theme.shadow, opacity: draggingItem?.id === item.id ? 0 : 1 },
+					pressed && { transform: [{ scale: 0.98 }] }
 				]}> 
 				<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
 				<Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
@@ -201,13 +204,15 @@ export default function BrazilStockScreen() {
 		const key = `ret-${item.id}`;
 		return (
 			<Pressable
+				{...(panResponder.current ? panResponder.current.panHandlers : {})}
+				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
 				onLongPress={(e) => startDrag(item, 'brazil', e.nativeEvent)}
 				delayLongPress={220}
 				style={({ pressed }) => [
-				styles.card,
-				{ backgroundColor: theme.card, shadowColor: theme.shadow },
-				pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
-			]}>
+					styles.card,
+					{ backgroundColor: theme.card, shadowColor: theme.shadow, opacity: draggingItem?.id === item.id ? 0 : 1 },
+					pressed && { transform: [{ scale: 0.98 }] }
+				]}> 
 				<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
 				<Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
 				<View style={[styles.badge, { backgroundColor: theme.accent }]}>
@@ -260,6 +265,9 @@ export default function BrazilStockScreen() {
 	const [draggingItem, setDraggingItem] = useState<Article | null>(null);
 	const [dragOrigin, setDragOrigin] = useState<'main' | 'brazil' | null>(null);
 	const dragPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+	// small scale + opacity to make the preview feel "stuck" to the finger
+	const dragScale = useRef(new Animated.Value(1)).current;
+	const dragOpacity = useRef(new Animated.Value(1)).current;
 	const panResponder = useRef<any>(null);
 	const mainLayout = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 	const brazilLayoutRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -274,64 +282,146 @@ export default function BrazilStockScreen() {
 	const [transferPrice, setTransferPrice] = useState('');
 	const transferSourceRef = useRef<Article | null>(null);
 
+	// Root container offset (to align window coords with overlay coords)
+	const rootRef = useRef<any>(null);
+	const rootOffsetRef = useRef({ x: 0, y: 0 });
+
+	// Per-row refs so we can measure the actual grabbed row
+	const rowRefs = useRef<Record<number, any>>({});
+
+	// Live preview size (match grabbed row)
+	const [previewSize, setPreviewSize] = useState({ width: 260, height: 56 });
+	const previewSizeRef = useRef(previewSize);
+	useEffect(() => { previewSizeRef.current = previewSize; }, [previewSize]);
+
+	// Preview sizing for centering under finger is tracked in `previewSize` (measured per-row)
+
+	// helper to animate release / snap
+	const animateRelease = (droppedOn: 'main' | 'brazil' | null) => {
+		if (droppedOn) {
+			const origin = transferOriginRef.current;
+			let tgt = null;
+			if (origin === 'main') tgt = brazilLayoutRef.current;
+			else if (origin === 'brazil') tgt = mainLayout.current;
+			if (tgt) {
+				// convert target (window) -> overlay coords and center preview in the target area
+				const { x: cx, y: cy } = rootOffsetRef.current;
+				const targetX = (tgt.x - cx) + tgt.width / 2 - previewSize.width / 2;
+				const targetY = (tgt.y - cy) + tgt.height / 2 - previewSize.height / 2;
+				Animated.parallel([
+					Animated.timing(dragPos, { toValue: { x: targetX, y: targetY }, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+					Animated.timing(dragScale, { toValue: 0.95, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+				]).start(() => {
+					// open modal after the snap animation
+					setDraggingItem(null);
+					setHighlightTarget(null);
+					setTransferQty('');
+					setTransferPrice('');
+					setTransferModalVisible(true);
+					transferSourceRef.current = null;
+					transferOriginRef.current = null;
+					// reset values
+					dragScale.setValue(1);
+					dragOpacity.setValue(1);
+					dragPos.setValue({ x: 0, y: 0 });
+				});
+				return;
+			}
+		}
+		// cancelled or no valid target — fade out the preview quickly then clear
+		Animated.parallel([
+			Animated.timing(dragOpacity, { toValue: 0, duration: 140, easing: Easing.in(Easing.quad), useNativeDriver: false }),
+			Animated.timing(dragScale, { toValue: 0.9, duration: 140, easing: Easing.in(Easing.quad), useNativeDriver: false }),
+		]).start(() => {
+			setDraggingItem(null);
+			setHighlightTarget(null);
+			transferSourceRef.current = null;
+			transferOriginRef.current = null;
+			dragScale.setValue(1);
+			dragOpacity.setValue(1);
+			dragPos.setValue({ x: 0, y: 0 });
+		});
+	};
+
+	// create a single PanResponder once; it reads the live previewSize from previewSizeRef
+	useEffect(() => {
+		if (panResponder.current) return;
+		panResponder.current = PanResponder.create({
+			onStartShouldSetPanResponder: () => false,
+			onMoveShouldSetPanResponder: () => !!transferSourceRef.current,
+			onPanResponderMove: (_, gs) => {
+				if (!transferSourceRef.current) return;
+				// convert window coords -> overlay coords using root offset and keep preview centered under finger
+				const { x: cx, y: cy } = rootOffsetRef.current;
+				const w = previewSizeRef.current.width, h = previewSizeRef.current.height;
+				dragPos.setValue({ x: gs.moveX - cx - w / 2, y: gs.moveY - cy - h / 2 });
+				const x = gs.moveX, y = gs.moveY;
+				const origin = transferOriginRef.current;
+				if (origin === 'main') {
+					const tgt = brazilLayoutRef.current;
+					if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('brazil');
+					else setHighlightTarget(null);
+				} else if (origin === 'brazil') {
+					const tgt = mainLayout.current;
+					if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('main');
+					else setHighlightTarget(null);
+				}
+			},
+			onPanResponderRelease: (_, gs) => {
+				if (!transferSourceRef.current) return;
+				const x = gs.moveX, y = gs.moveY;
+				let droppedOn: 'main' | 'brazil' | null = null;
+				const origin = transferOriginRef.current;
+				if (origin === 'main') {
+					const tgt = brazilLayoutRef.current;
+					if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'brazil';
+				} else if (origin === 'brazil') {
+					const tgt = mainLayout.current;
+					if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'main';
+				}
+				animateRelease(droppedOn);
+			},
+			onPanResponderTerminationRequest: () => false,
+		});
+	}, []);
+
 	const startDrag = (item: Article, origin: 'main' | 'brazil', nativeEvent: any) => {
-			setDraggingItem(item);
-			setDragOrigin(origin);
-			transferOriginRef.current = origin;
-			transferSourceRef.current = item;
-			dragPos.setValue({ x: nativeEvent.pageX - 40, y: nativeEvent.pageY - 24 });
-			// measure both sections to absolute window coords so we can compare with moveX/moveY
-			try {
-					if (mainRef.current && mainRef.current.measureInWindow) {
-							mainRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
-									mainLayout.current = { x, y, width, height };
-							});
-					}
-					if (brazilRef.current && brazilRef.current.measureInWindow) {
-							brazilRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
-									brazilLayoutRef.current = { x, y, width, height };
-							});
-					}
-			} catch (err) {
-					// ignore measure errors
-			}
-			if (!panResponder.current) {
-					panResponder.current = PanResponder.create({
-							onStartShouldSetPanResponder: () => true,
-							onPanResponderMove: (_, gs) => {
-									dragPos.setValue({ x: gs.moveX - 40, y: gs.moveY - 24 });
-									const x = gs.moveX, y = gs.moveY;
-									if (origin === 'main') {
-											const tgt = brazilLayoutRef.current;
-											if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('brazil');
-											else setHighlightTarget(null);
-									} else if (origin === 'brazil') {
-											const tgt = mainLayout.current;
-											if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('main');
-											else setHighlightTarget(null);
-									}
-							},
-							onPanResponderRelease: (_, gs) => {
-									const x = gs.moveX, y = gs.moveY;
-									let droppedOn: 'main' | 'brazil' | null = null;
-									// use captured origin variable (closure) to determine target
-									if (origin === 'main') {
-											const tgt = brazilLayoutRef.current;
-											if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'brazil';
-									} else if (origin === 'brazil') {
-											const tgt = mainLayout.current;
-											if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'main';
-									}
-									setDraggingItem(null);
-									setHighlightTarget(null);
-									if (droppedOn) {
-											setTransferQty('');
-											setTransferPrice('');
-											setTransferModalVisible(true);
-									}
-							}
-					});
-			}
+		setDraggingItem(item);
+	 	setDragOrigin(origin);
+	 	transferOriginRef.current = origin;
+	 	transferSourceRef.current = item;
+
+		// Try to measure the actual row so the preview matches its size and position
+		try {
+			rowRefs.current[item.id]?.measureInWindow?.((rx: number, ry: number, rw: number, rh: number) => {
+				setPreviewSize({ width: rw, height: rh });
+				// Convert window coords to overlay coords
+				const { x: cx, y: cy } = rootOffsetRef.current;
+				// Center preview under the original long-press point
+				dragPos.setValue({ x: nativeEvent.pageX - cx - rw / 2, y: nativeEvent.pageY - cy - rh / 2 });
+
+				// subtle pick-up animation
+				dragScale.setValue(1);
+				dragOpacity.setValue(1);
+				Animated.parallel([
+					Animated.timing(dragScale, { toValue: 1.04, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+					Animated.timing(dragOpacity, { toValue: 1, duration: 100, useNativeDriver: false }),
+				]).start();
+
+				// measure section bounds for hit-testing
+				try {
+					mainRef.current?.measureInWindow?.((x: number, y: number, w: number, h: number) => { mainLayout.current = { x, y, width: w, height: h }; });
+					brazilRef.current?.measureInWindow?.((x: number, y: number, w: number, h: number) => { brazilLayoutRef.current = { x, y, width: w, height: h }; });
+				} catch {}
+			});
+		} catch {
+			// fallback: center under finger using current previewSize
+			const { x: cx, y: cy } = rootOffsetRef.current;
+			dragPos.setValue({ x: nativeEvent.pageX - cx - previewSize.width / 2, y: nativeEvent.pageY - cy - previewSize.height / 2 });
+			// minimal pick-up animation
+			dragScale.setValue(1.04);
+			dragOpacity.setValue(1);
+		}
 	};
 
 	const onMainLayout = (ev: any) => {
@@ -386,9 +476,19 @@ export default function BrazilStockScreen() {
 	};
 
 	return (
-		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> 
+		<SafeAreaView
+			ref={rootRef}
+			onLayout={() => {
+				try {
+					rootRef.current?.measureInWindow?.((x: number, y: number) => {
+						rootOffsetRef.current = { x, y };
+					});
+				} catch {}
+			}}
+			style={[styles.container, { backgroundColor: theme.background }]}
+		> 
 			<KeyboardAvoidingView style={styles.container} behavior={Platform.select({ ios: 'padding' })}>
-				<View onLayout={onMainLayout} style={[
+				<View ref={mainRef} onLayout={onMainLayout} style={[
 					styles.sectionContainer,
 					{ backgroundColor: theme.card, marginBottom: 0 },
 					highlightTarget === 'main' ? { borderColor: theme.primary, borderWidth: 2 } : {}
@@ -415,7 +515,7 @@ export default function BrazilStockScreen() {
 					</View>
 				</View>
 
-				<View onLayout={onBrazilLayout} style={[
+				<View ref={brazilRef} onLayout={onBrazilLayout} style={[
 					styles.sectionContainer,
 					{ backgroundColor: theme.card },
 					highlightTarget === 'brazil' ? { borderColor: theme.primary, borderWidth: 2 } : {}
@@ -445,23 +545,20 @@ export default function BrazilStockScreen() {
 				</View>
 
 				{/* Drag preview overlay (captures pan events while dragging) */}
-				{draggingItem && panResponder.current ? (
-					<Animated.View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 9999 }} {...panResponder.current.panHandlers} pointerEvents="auto">
-						<Animated.View style={{
-							position: 'absolute',
-							width: 220,
-							padding: 12,
-							borderRadius: 12,
-							elevation: 10,
-							shadowOffset: { width: 0, height: 8 },
-							backgroundColor: theme.card,
-							shadowColor: theme.shadow,
-							transform: dragPos.getTranslateTransform(),
-						}}>
-							<Text style={{ color: theme.text, fontWeight: '800', marginBottom: 4 }}>{draggingItem.name}</Text>
-							<Text style={{ color: theme.text }}>{`${draggingItem.quantity} pcs`}</Text>
-						</Animated.View>
-					</Animated.View>
+				{draggingItem ? (
+					<View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 9999 }} pointerEvents="box-none">
+						{draggingItem ? (
+							<Animated.View pointerEvents="none" style={{ position: 'absolute', left: (dragPos as any).x, top: (dragPos as any).y, transform: [{ scale: dragScale }], opacity: dragOpacity, zIndex: 10000 }}>
+								<View style={[styles.card, { width: previewSize.width, height: previewSize.height, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.card, shadowColor: theme.shadow, overflow: 'hidden' }] }>
+									<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
+									<Text style={[styles.cardText, { color: theme.text, maxWidth: 160 }]} numberOfLines={1}>{draggingItem.name}</Text>
+									<View style={[styles.badge, { backgroundColor: theme.accent, marginLeft: 8 }] }>
+										<Text style={styles.badgeText}>{draggingItem.quantity}</Text>
+									</View>
+								</View>
+							</Animated.View>
+						) : null}
+					</View>
 				) : null}
 
 				{/* Transfer modal: ask for quantity then price */}
