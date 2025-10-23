@@ -339,24 +339,49 @@ export default function MapScreen() {
       <Modal visible={!!detailModal} transparent animationType="fade" onRequestClose={() => setDetailModal(null)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modal, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>{detailModal?.client}</Text>
-            <ScrollView style={styles.modalList}>
-              {detailModal?.items.map((it, i) => (
-                <View key={i} style={styles.detailRow}>
-                  <Text style={[styles.cell, { color: theme.text }]}>{it.name}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>{it.quantity}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
-                  <Text style={[styles.cell, { color: theme.text }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
+                <View style={styles.receiptHeader}>
+                  <Text style={[styles.receiptTitle, { color: theme.primary }]}>{detailModal?.client}</Text>
+                  <Text style={[styles.receiptMeta, { color: theme.placeholder }]}>{new Date().toLocaleString()}</Text>
                 </View>
-              ))}
-            </ScrollView>
-            <Pressable style={[styles.modalClose, { marginTop: 12 }]} onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}>
-              <Text style={{ color: theme.accent }}>{t('map.deletePin')}</Text>
-            </Pressable>
-            <Pressable style={[styles.modalClose, { marginTop: 8 }]} onPress={() => setDetailModal(null)}>
-              <Text style={{ color: theme.accent }}>{t('common.close')}</Text>
-            </Pressable>
-          </View>
+
+                <ScrollView style={[styles.modalList, styles.receiptBody]}>
+                  <View style={styles.receiptColumnsHeader}>
+                    <Text style={[styles.colName, { color: theme.placeholder }]}>Item</Text>
+                    <Text style={[styles.colQty, { color: theme.placeholder }]}>Qty</Text>
+                    <Text style={[styles.colPrice, { color: theme.placeholder }]}>Unit</Text>
+                    <Text style={[styles.colTotal, { color: theme.placeholder }]}>Line</Text>
+                  </View>
+
+                  {detailModal?.items.map((it, i) => (
+                    <View key={i} style={[styles.receiptRow, i % 2 === 0 ? styles.receiptRowAlt : undefined]}>
+                      <Text style={[styles.colName, { color: theme.text }]} numberOfLines={2}>{it.name}</Text>
+                      <Text style={[styles.colQty, { color: theme.text }]}>{String(it.quantity)}</Text>
+                      <Text style={[styles.colPrice, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
+                      <Text style={[styles.colTotal, { color: theme.text }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+
+                <View style={styles.receiptFooter}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingBottom: 8 }}>
+                    <Text style={[styles.receiptFooterLabel, { color: theme.text }]}>Subtotal</Text>
+                    <Text style={[styles.receiptFooterValue, { color: theme.text }]}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                    <Text style={[styles.receiptTotalLabel, { color: theme.primary }]}>Total</Text>
+                    <Text style={[styles.receiptTotalValue, { color: theme.primary }]}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+                  <Pressable style={[styles.modalClose, { marginRight: 8 }]} onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}>
+                    <Text style={{ color: theme.accent }}>{t('map.deletePin')}</Text>
+                  </Pressable>
+                  <Pressable style={styles.modalClose} onPress={() => setDetailModal(null)}>
+                    <Text style={{ color: theme.accent }}>{t('common.close')}</Text>
+                  </Pressable>
+                </View>
+              </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -470,6 +495,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.2,
   },
+
+  // Receipt styles
+  receiptHeader: { alignItems: 'center', marginBottom: 8 },
+  receiptTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 0.3 },
+  receiptMeta: { fontSize: 12, marginTop: 6, opacity: 0.9 },
+  receiptBody: { maxHeight: 320, backgroundColor: 'transparent' },
+  receiptColumnsHeader: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  receiptRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  receiptRowAlt: { backgroundColor: 'rgba(0,0,0,0.02)' },
+  colName: { flex: 1.6, fontSize: 14, fontWeight: '700' },
+  colQty: { width: 48, textAlign: 'center', fontWeight: '800' },
+  colPrice: { width: 84, textAlign: 'right', fontWeight: '700' },
+  colTotal: { width: 92, textAlign: 'right', fontWeight: '900', marginLeft: 12 },
+  receiptFooter: { paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  receiptFooterLabel: { fontSize: 14, fontWeight: '700' },
+  receiptFooterValue: { fontSize: 14, fontWeight: '700' },
+  receiptTotalLabel: { fontSize: 16, fontWeight: '900' },
+  receiptTotalValue: { fontSize: 18, fontWeight: '900' },
 
   // (Optional) If you later decide to split columns like in client.tsx:
   // detailItem: { flex: 1, fontSize: 16, fontWeight: "600" },

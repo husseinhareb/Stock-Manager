@@ -56,6 +56,7 @@ type SavedClientDetail = {
   client: string;
   total: number;
   items: ClientItem[];
+  created_at?: number;
 };
 type ReceiptPayload = { client: string; total: number; items: ClientItem[] };
 
@@ -160,7 +161,7 @@ export default function ClientScreen() {
   const openDetail = async (summary: SavedSummary) => {
     try {
       const lines = await fetchClientItems(summary.id);
-      setDetailModal({ id: summary.id, client: summary.client, total: summary.total, items: lines.map((l) => ({ id: l.article_id, name: l.name, quantity: l.quantity, unitPrice: l.price, available: 0 })) });
+      setDetailModal({ id: summary.id, client: summary.client, total: summary.total, created_at: summary.created_at, items: lines.map((l) => ({ id: l.article_id, name: l.name, quantity: l.quantity, unitPrice: l.price, available: 0 })) });
     } catch (e: any) { Alert.alert(t('client.alert.detailLoadFailed'), e.message); }
   };
 
@@ -455,30 +456,50 @@ export default function ClientScreen() {
         <Modal visible={!!detailModal} transparent animationType="slide" onRequestClose={() => { setDetailModal(null); }}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-              <View style={styles.detailHeader}>
-                <FontAwesome name="book" size={28} color={theme.accent} />
-                <Text style={[styles.detailHeaderTitle, { color: theme.text }]}>{detailModal?.client}</Text>
+              <View style={styles.receiptHeader}>
+                <Text style={[styles.receiptTitle, { color: theme.primary }]}>{detailModal?.client}</Text>
+                <Text style={[styles.receiptMeta, { color: theme.placeholder }]}>{detailModal && detailModal.created_at ? new Date(detailModal.created_at).toLocaleString() : new Date().toLocaleString()}</Text>
               </View>
-              <ScrollView style={styles.detailList}>
+
+              <ScrollView style={[styles.detailList, styles.receiptBody]}>
+                <View style={styles.receiptColumnsHeader}>
+                  <Text style={[styles.colName, { color: theme.placeholder }]}>{t('client.table.item')}</Text>
+                  <Text style={[styles.colQty, { color: theme.placeholder }]}>{t('client.table.qty')}</Text>
+                  <Text style={[styles.colPrice, { color: theme.placeholder }]}>{t('client.table.unitPrice')}</Text>
+                  <Text style={[styles.colTotal, { color: theme.placeholder }]}>{t('client.table.total')}</Text>
+                </View>
+
                 {detailModal?.items.map((it, idx) => (
-                  <View key={idx} style={[styles.detailRow, idx % 2 ? styles.detailRowAlt : null]}>
-                    <Text style={[styles.detailItem, { color: theme.text }]} numberOfLines={1}>{it.name}</Text>
-                    <Text style={[styles.detailQty, { color: theme.text }]}>{it.quantity}</Text>
-                    <Text style={[styles.detailPrice, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
-                    <Text style={[styles.detailTotal, { color: theme.text }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
+                  <View key={idx} style={[styles.receiptRow, idx % 2 ? styles.receiptRowAlt : null]}>
+                    <Text style={[styles.colName, { color: theme.text }]} numberOfLines={2}>{it.name}</Text>
+                    <Text style={[styles.colQty, { color: theme.text }]}>{String(it.quantity)}</Text>
+                    <Text style={[styles.colPrice, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
+                    <Text style={[styles.colTotal, { color: theme.text }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
                   </View>
                 ))}
               </ScrollView>
-              <View style={styles.modalActions}>
-                <Pressable onPress={() => detailModal && shareReceipt(detailModal)} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>
+
+              <View style={styles.receiptFooter}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingBottom: 8 }}>
+                  <Text style={[styles.receiptFooterLabel, { color: theme.text }]}>{t('client.table.subtotal')}</Text>
+                  <Text style={[styles.receiptFooterValue, { color: theme.text }]}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                  <Text style={[styles.receiptTotalLabel, { color: theme.primary }]}>{t('client.table.total')}</Text>
+                  <Text style={[styles.receiptTotalValue, { color: theme.primary }]}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+                <Pressable onPress={() => detailModal && shareReceipt(detailModal)} style={[styles.modalBtn, { backgroundColor: theme.accent }]}> 
                   <Text style={{ color: '#fff' }}>{t('client.sharePDF')}</Text>
                 </Pressable>
                 {detailModal && (
-                  <Pressable onPress={() => { confirmDeleteSaved(detailModal.id); setDetailModal(null); }} style={[styles.modalBtn, { borderWidth: 1, borderColor: 'tomato', backgroundColor: 'transparent' }]}> 
+                  <Pressable onPress={() => { confirmDeleteSaved(detailModal.id); setDetailModal(null); }} style={[styles.modalBtn, { borderWidth: 1, borderColor: 'tomato', backgroundColor: 'transparent', marginLeft: 8 }]}> 
                     <Text style={{ color: 'tomato', fontWeight: '600' }}>{t('common.delete')}</Text>
                   </Pressable>
                 )}
-                <Pressable onPress={() => setDetailModal(null)} style={[styles.modalBtn, { borderWidth: 1, borderColor: theme.accent, backgroundColor: 'transparent' }]}>
+                <Pressable onPress={() => setDetailModal(null)} style={[styles.modalBtn, { borderWidth: 1, borderColor: theme.accent, backgroundColor: 'transparent', marginLeft: 8 }]}> 
                   <Text style={{ color: theme.accent, fontWeight: '600' }}>{t('common.close')}</Text>
                 </Pressable>
               </View>
@@ -748,5 +769,23 @@ const styles = StyleSheet.create({
   },
   badgeText: { marginLeft: 8, fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
   trashBtn: { marginLeft: 8, padding: 6, borderRadius: 8 },
+
+  // Receipt styles (for detail modal)
+  receiptHeader: { alignItems: 'center', marginBottom: 8 },
+  receiptTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 0.3 },
+  receiptMeta: { fontSize: 12, marginTop: 6, opacity: 0.9 },
+  receiptBody: { maxHeight: 320, backgroundColor: 'transparent' },
+  receiptColumnsHeader: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  receiptRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  receiptRowAlt: { backgroundColor: 'rgba(0,0,0,0.02)' },
+  colName: { flex: 1.6, fontSize: 14, fontWeight: '700' },
+  colQty: { width: 48, textAlign: 'center', fontWeight: '800' },
+  colPrice: { width: 84, textAlign: 'right', fontWeight: '700' },
+  colTotal: { width: 92, textAlign: 'right', fontWeight: '900', marginLeft: 12 },
+  receiptFooter: { paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  receiptFooterLabel: { fontSize: 14, fontWeight: '700' },
+  receiptFooterValue: { fontSize: 14, fontWeight: '700' },
+  receiptTotalLabel: { fontSize: 16, fontWeight: '900' },
+  receiptTotalValue: { fontSize: 18, fontWeight: '900' },
 });
 
