@@ -3,14 +3,14 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Article, Price } from '@/src/db';
 import {
-  deleteSavedClient,
-  fetchClientItems,
-  fetchPrices,
-  fetchSavedClients,
-  fetchSecondaryStock,
-  getSetting,
-  saveClient as persistClient,
-  sellSecondary,
+    deleteSavedClient,
+    fetchClientItems,
+    fetchPrices,
+    fetchSavedClients,
+    fetchSecondaryStock,
+    getSetting,
+    saveClient as persistClient,
+    sellSecondary,
 } from '@/src/db';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,19 +20,19 @@ import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Alert,
-  BackHandler,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    BackHandler,
+    FlatList,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   modalBox: {
     width: '92%',
     maxWidth: 520,
-    borderRadius: 22,
+    borderRadius: 12,
     padding: 22,
     elevation: 12,
     shadowColor: '#000',

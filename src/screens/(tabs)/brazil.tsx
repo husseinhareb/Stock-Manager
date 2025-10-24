@@ -1,14 +1,16 @@
 // src/screens/(tabs)/brazil.tsx
 import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
 	Alert,
+	Animated,
 	FlatList,
 	Keyboard,
 	KeyboardAvoidingView,
 	Modal,
+	PanResponder,
 	Platform,
 	Pressable,
 	StyleSheet,
@@ -94,7 +96,7 @@ export default function BrazilStockScreen() {
 
 	const priceMap = useMemo(() => {
 		const m: Record<number, number> = {};
-		prices.forEach(p => { m[p.article_id] = p.price });
+		prices.forEach(p => { m[p.article_id] = p.price; });
 		return m;
 	}, [prices]);
 
@@ -154,11 +156,14 @@ export default function BrazilStockScreen() {
 	const renderMoveItem = ({ item }: { item: Article }) => {
 		const key = `move-${item.id}`;
 		return (
-			<Pressable style={({ pressed }) => [
-				styles.card,
-				{ backgroundColor: theme.card, shadowColor: theme.shadow },
-				pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
-			]}>
+			<Pressable
+				onLongPress={(e) => startDrag(item, 'brazil', e.nativeEvent)}
+				delayLongPress={220}
+				style={({ pressed }) => [
+					styles.card,
+					{ backgroundColor: theme.card, shadowColor: theme.shadow },
+					pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+				]}> 
 				<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
 				<Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
 				<View style={[styles.badge, { backgroundColor: theme.accent }]}>
@@ -248,10 +253,104 @@ export default function BrazilStockScreen() {
 		);
 	};
 
+	// --- Drag & drop state and handlers ---
+	const [draggingItem, setDraggingItem] = useState<Article | null>(null);
+	const [dragOrigin, setDragOrigin] = useState<'main' | 'brazil' | null>(null);
+	const dragPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+	const panResponder = useRef<any>(null);
+	const mainLayout = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+	const brazilLayoutRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+	const [highlightTarget, setHighlightTarget] = useState<'main' | 'brazil' | null>(null);
+
+	// Transfer modal state
+	const [transferModalVisible, setTransferModalVisible] = useState(false);
+	const [transferQty, setTransferQty] = useState('');
+	const [transferPrice, setTransferPrice] = useState('');
+	const transferSourceRef = useRef<Article | null>(null);
+
+	const startDrag = (item: Article, origin: 'main' | 'brazil', nativeEvent: any) => {
+		setDraggingItem(item);
+		setDragOrigin(origin);
+		transferSourceRef.current = item;
+		dragPos.setValue({ x: nativeEvent.pageX - 40, y: nativeEvent.pageY - 24 });
+		if (!panResponder.current) {
+			panResponder.current = PanResponder.create({
+				onStartShouldSetPanResponder: () => true,
+				onPanResponderMove: (_, gs) => {
+					dragPos.setValue({ x: gs.moveX - 40, y: gs.moveY - 24 });
+					const x = gs.moveX, y = gs.moveY;
+					if (origin === 'main') {
+						const tgt = brazilLayoutRef.current;
+						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('brazil');
+						else setHighlightTarget(null);
+					} else if (origin === 'brazil') {
+						const tgt = mainLayout.current;
+						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('main');
+						else setHighlightTarget(null);
+					}
+				},
+				onPanResponderRelease: (_, gs) => {
+					const x = gs.moveX, y = gs.moveY;
+					let droppedOn: 'main' | 'brazil' | null = null;
+					if (dragOrigin === 'main') {
+						const tgt = brazilLayoutRef.current;
+						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'brazil';
+					} else if (dragOrigin === 'brazil') {
+						const tgt = mainLayout.current;
+						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'main';
+					}
+					setDraggingItem(null);
+					setHighlightTarget(null);
+					if (droppedOn) {
+						setTransferQty('');
+						setTransferPrice('');
+						setTransferModalVisible(true);
+					}
+				}
+			});
+		}
+	};
+
+	const onMainLayout = (ev: any) => {
+		const { x, y, width, height } = ev.nativeEvent.layout;
+		mainLayout.current = { x, y, width, height };
+	};
+	const onBrazilLayout = (ev: any) => {
+		const { x, y, width, height } = ev.nativeEvent.layout;
+		brazilLayoutRef.current = { x, y, width, height };
+	};
+
+	const validateAndPerformTransfer = async () => {
+		const src = transferSourceRef.current;
+		if (!src) return;
+		const qty = parseInt(transferQty || '0', 10);
+		const price = parseFloat(transferPrice || '0');
+		if (!qty || qty <= 0 || qty > src.quantity) return Alert.alert(t('brazil.alert.invalidQty'));
+		if (isNaN(price) || price < 0) return Alert.alert(t('brazil.alert.invalidPrice'));
+		try {
+			if (dragOrigin === 'main') {
+				await moveToSecondary(src.id, qty);
+				await setPrice(src.id, price);
+			} else if (dragOrigin === 'brazil') {
+				await returnToMain(src.id, qty);
+				await setPrice(src.id, price);
+			}
+			setTransferModalVisible(false);
+			transferSourceRef.current = null;
+			await loadData();
+		} catch (e: any) {
+			Alert.alert(t('brazil.alert.transferFailed'), e.message);
+		}
+	};
+
 	return (
 		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> 
 			<KeyboardAvoidingView style={styles.container} behavior={Platform.select({ ios: 'padding' })}>
-				<View style={[styles.sectionContainer, { backgroundColor: theme.card, marginBottom: 0 }]}>
+				<View onLayout={onMainLayout} style={[
+					styles.sectionContainer,
+					{ backgroundColor: theme.card, marginBottom: 0 },
+					highlightTarget === 'main' ? { borderColor: theme.primary, borderWidth: 2 } : {}
+				]}> 
 					<Text style={[styles.sectionTitle, { color: theme.primary }]}>{t('brazil.chinaStock')}</Text>
 					<FlatList
 						data={mainStock.filter(a => a.quantity > 0)}
@@ -274,7 +373,11 @@ export default function BrazilStockScreen() {
 					</View>
 				</View>
 
-				<View style={[styles.sectionContainer, { backgroundColor: theme.card }]}>
+				<View onLayout={onBrazilLayout} style={[
+					styles.sectionContainer,
+					{ backgroundColor: theme.card },
+					highlightTarget === 'brazil' ? { borderColor: theme.primary, borderWidth: 2 } : {}
+				]}> 
 					<Text style={[styles.heading, { color: theme.primary }]}>{t('brazil.brazilStock')}</Text>
 					<FlatList
 						data={brazilStock.filter(a => a.quantity > 0)}
@@ -298,6 +401,59 @@ export default function BrazilStockScreen() {
 						<Text style={[styles.footerText, { color: theme.text }]}>{`${brazilTotalVal.toFixed(2)}`}</Text>
 					</View>
 				</View>
+
+				{/* Drag preview overlay (captures pan events while dragging) */}
+				{draggingItem && panResponder.current ? (
+					<Animated.View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 9999 }} {...panResponder.current.panHandlers} pointerEvents="auto">
+						<Animated.View style={{
+							position: 'absolute',
+							width: 220,
+							padding: 12,
+							borderRadius: 12,
+							elevation: 10,
+							shadowOffset: { width: 0, height: 8 },
+							backgroundColor: theme.card,
+							shadowColor: theme.shadow,
+							transform: dragPos.getTranslateTransform(),
+						}}>
+							<Text style={{ color: theme.text, fontWeight: '800', marginBottom: 4 }}>{draggingItem.name}</Text>
+							<Text style={{ color: theme.text }}>{`${draggingItem.quantity} pcs`}</Text>
+						</Animated.View>
+					</Animated.View>
+				) : null}
+
+				{/* Transfer modal: ask for quantity then price */}
+				<Modal visible={transferModalVisible} transparent animationType="slide" onRequestClose={() => { setTransferModalVisible(false); }}>
+					<View style={styles.modalOverlay}>
+						<View style={[styles.modalContent, { backgroundColor: theme.card, shadowColor: theme.shadow }]}> 
+							<Text style={[styles.modalTitle, { color: theme.text }]}>{t('brazil.transfer.title')}</Text>
+							<TextInput
+								style={[styles.modalInput, { borderColor: theme.border }]}
+								placeholder={t('brazil.placeholder.qty')}
+								placeholderTextColor={theme.placeholder}
+								keyboardType="number-pad"
+								value={transferQty}
+								onChangeText={setTransferQty}
+							/>
+							<TextInput
+								style={[styles.modalInput, { borderColor: theme.border }]}
+								placeholder={t('brazil.placeholder.unitPrice')}
+								placeholderTextColor={theme.placeholder}
+								keyboardType={Platform.select({ ios: 'decimal-pad', android: 'number-pad' })}
+								value={transferPrice}
+								onChangeText={setTransferPrice}
+							/>
+							<View style={styles.modalActions}>
+								<Pressable onPress={() => setTransferModalVisible(false)} style={styles.modalBtn}>
+									<Text style={{ color: theme.text, fontWeight: '600' }}>{t('common.cancel')}</Text>
+								</Pressable>
+								<Pressable onPress={validateAndPerformTransfer} style={[styles.modalBtn, { backgroundColor: theme.primary }]}>
+									<Text style={{ color: '#fff', fontWeight: '600' }}>{t('common.save')}</Text>
+								</Pressable>
+							</View>
+						</View>
+					</View>
+				</Modal>
 
 				<Modal visible={priceModalVisible} transparent animationType="slide" onRequestClose={() => { setPriceModalVisible(false); }}>
 					<View style={styles.modalOverlay}>

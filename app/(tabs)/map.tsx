@@ -164,9 +164,10 @@ export default function MapScreen() {
   <style>
     html, body, #map { height:100%; margin:0; padding:0; }
     .marker-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
-    .marker-dot { width:18px; height:18px; border-radius:18px; border:3px solid #fff; background: linear-gradient(180deg,#34d399,#059669); box-shadow: 0 6px 14px rgba(3,7,18,0.32); }
-    .marker-label { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.72); color: #fff; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px rgba(2,6,23,0.28); }
-    .marker-label::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); bottom: -6px; width: 10px; height: 6px; background: rgba(0,0,0,0.72); clip-path: polygon(50% 100%, 0 0, 100% 0); }
+  .marker-icon { width:28px; height:28px; display:block; border-radius:6px; background: linear-gradient(180deg,#34d399,#059669); box-shadow: 0 6px 14px rgba(3,7,18,0.32); display:flex; align-items:center; justify-content:center; }
+  .marker-icon svg { width:16px; height:16px; }
+  .marker-label { position: absolute; top: 36px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.72); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px rgba(2,6,23,0.28); }
+    .marker-label::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); top: calc(100% + 4px); width: 10px; height: 6px; background: rgba(0,0,0,0.72); clip-path: polygon(50% 0, 0 100%, 100% 100%); }
   </style>
   </head><body>
   <div id="map"></div>
@@ -274,8 +275,15 @@ export default function MapScreen() {
       layer.clearLayers();
       (list || []).forEach(m => {
     const safeName = escapeHtml(m.name || '');
-    const markHtml = '<div class="marker-wrap"><div class="marker-label">' + safeName + '</div><div class="marker-dot"></div></div>';
-    const icon = L.divIcon({ className: '', html: markHtml, iconSize: [140, 40], iconAnchor: [70, 18] });
+    const markHtml = '<div class="marker-wrap">'
+      + '<div class="marker-icon">'
+          + '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">'
+            + '<path fill="#ffffff" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>'
+          + '</svg>'
+        + '</div>'
+      + '<div class="marker-label">' + safeName + '</div>'
+    + '</div>';
+    const icon = L.divIcon({ className: '', html: markHtml, iconSize: [140, 70], iconAnchor: [70, 18] });
         const marker = L.marker([m.latitude, m.longitude], { icon });
         marker.on('click', () => RN && RN.postMessage(JSON.stringify({ type:'markerPress', id: m.id })));
         marker.addTo(layer);
@@ -300,9 +308,7 @@ export default function MapScreen() {
         domStorageEnabled
       />
 
-      <View style={[styles.attribution, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
-        <Text style={styles.attrText}>© MapTiler © OpenStreetMap contributors</Text>
-      </View>
+      {/* Attribution is rendered by Leaflet inside the WebView; removed duplicate native overlay */}
 
       {/* Select Client Modal */}
       <Modal visible={selectModalVisible} transparent animationType="slide" onRequestClose={() => setSelectModalVisible(false)}>
@@ -421,7 +427,7 @@ const styles = StyleSheet.create({
     width: "92%",
     maxWidth: 520,
     maxHeight: "78%",
-    borderRadius: 22,
+    borderRadius: 12,
     padding: 22,
     elevation: 12,
     shadowColor: "#000",
