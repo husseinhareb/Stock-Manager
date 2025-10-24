@@ -318,8 +318,6 @@ export default function BrazilStockScreen() {
 					setTransferQty('');
 					setTransferPrice('');
 					setTransferModalVisible(true);
-					transferSourceRef.current = null;
-					transferOriginRef.current = null;
 					// reset values
 					dragScale.setValue(1);
 					dragOpacity.setValue(1);
@@ -454,7 +452,11 @@ export default function BrazilStockScreen() {
 
 	const validateAndPerformTransfer = async () => {
 		const src = transferSourceRef.current;
-		if (!src) return;
+		if (!src) {
+			Alert.alert(t('brazil.alert.transferFailed'), t('brazil.alert.unknownItem'));
+			setTransferModalVisible(false);
+			return;
+		}
 		const qty = parseInt(transferQty || '0', 10);
 		const price = parseFloat(transferPrice || '0');
 		if (!qty || qty <= 0 || qty > src.quantity) return Alert.alert(t('brazil.alert.invalidQty'));
@@ -469,6 +471,8 @@ export default function BrazilStockScreen() {
 			}
 			setTransferModalVisible(false);
 			transferSourceRef.current = null;
+			transferOriginRef.current = null;
+			setDragOrigin(null);
 			await loadData();
 		} catch (e: any) {
 			Alert.alert(t('brazil.alert.transferFailed'), e.message);
@@ -583,7 +587,7 @@ export default function BrazilStockScreen() {
 								onChangeText={setTransferPrice}
 							/>
 							<View style={styles.modalActions}>
-								<Pressable onPress={() => setTransferModalVisible(false)} style={styles.modalBtn}>
+								<Pressable onPress={() => { setTransferModalVisible(false); transferSourceRef.current = null; transferOriginRef.current = null; setDragOrigin(null); setHighlightTarget(null); }} style={styles.modalBtn}>
 									<Text style={{ color: theme.text, fontWeight: '600' }}>{t('common.cancel')}</Text>
 								</Pressable>
 								<Pressable onPress={validateAndPerformTransfer} style={[styles.modalBtn, { backgroundColor: theme.primary }]}>
