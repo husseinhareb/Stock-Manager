@@ -102,8 +102,8 @@ export default function BrazilStockScreen() {
 
 	const mainTotalQty = useMemo(() => mainStock.reduce((s, a) => s + a.quantity, 0), [mainStock]);
 	const brazilTotalQty = useMemo(() => brazilStock.reduce((s, a) => s + a.quantity, 0), [brazilStock]);
-	const brazilTotalVal = useMemo(
-		() => brazilStock.reduce((s, a) => s + a.quantity * (priceMap[a.id] || 0), 0),
+	const brazilTotalVal = useMemo(() =>
+		brazilStock.reduce((s, a) => s + a.quantity * (priceMap[a.id] || 0), 0),
 		[brazilStock, priceMap]
 	);
 
@@ -156,8 +156,8 @@ export default function BrazilStockScreen() {
 	const renderMoveItem = ({ item }: { item: Article }) => {
 		const key = `move-${item.id}`;
 		return (
-			<Pressable
-				onLongPress={(e) => startDrag(item, 'brazil', e.nativeEvent)}
+				<Pressable
+					onLongPress={(e) => startDrag(item, 'main', e.nativeEvent)}
 				delayLongPress={220}
 				style={({ pressed }) => [
 					styles.card,
@@ -200,7 +200,10 @@ export default function BrazilStockScreen() {
 		const total = (unit * item.quantity).toFixed(2);
 		const key = `ret-${item.id}`;
 		return (
-			<Pressable style={({ pressed }) => [
+			<Pressable
+				onLongPress={(e) => startDrag(item, 'brazil', e.nativeEvent)}
+				delayLongPress={220}
+				style={({ pressed }) => [
 				styles.card,
 				{ backgroundColor: theme.card, shadowColor: theme.shadow },
 				pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
@@ -260,6 +263,9 @@ export default function BrazilStockScreen() {
 	const panResponder = useRef<any>(null);
 	const mainLayout = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 	const brazilLayoutRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+	const mainRef = useRef<any>(null);
+	const brazilRef = useRef<any>(null);
+	const transferOriginRef = useRef<'main' | 'brazil' | null>(null);
 	const [highlightTarget, setHighlightTarget] = useState<'main' | 'brazil' | null>(null);
 
 	// Transfer modal state
@@ -269,55 +275,91 @@ export default function BrazilStockScreen() {
 	const transferSourceRef = useRef<Article | null>(null);
 
 	const startDrag = (item: Article, origin: 'main' | 'brazil', nativeEvent: any) => {
-		setDraggingItem(item);
-		setDragOrigin(origin);
-		transferSourceRef.current = item;
-		dragPos.setValue({ x: nativeEvent.pageX - 40, y: nativeEvent.pageY - 24 });
-		if (!panResponder.current) {
-			panResponder.current = PanResponder.create({
-				onStartShouldSetPanResponder: () => true,
-				onPanResponderMove: (_, gs) => {
-					dragPos.setValue({ x: gs.moveX - 40, y: gs.moveY - 24 });
-					const x = gs.moveX, y = gs.moveY;
-					if (origin === 'main') {
-						const tgt = brazilLayoutRef.current;
-						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('brazil');
-						else setHighlightTarget(null);
-					} else if (origin === 'brazil') {
-						const tgt = mainLayout.current;
-						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('main');
-						else setHighlightTarget(null);
+			setDraggingItem(item);
+			setDragOrigin(origin);
+			transferOriginRef.current = origin;
+			transferSourceRef.current = item;
+			dragPos.setValue({ x: nativeEvent.pageX - 40, y: nativeEvent.pageY - 24 });
+			// measure both sections to absolute window coords so we can compare with moveX/moveY
+			try {
+					if (mainRef.current && mainRef.current.measureInWindow) {
+							mainRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
+									mainLayout.current = { x, y, width, height };
+							});
 					}
-				},
-				onPanResponderRelease: (_, gs) => {
-					const x = gs.moveX, y = gs.moveY;
-					let droppedOn: 'main' | 'brazil' | null = null;
-					if (dragOrigin === 'main') {
-						const tgt = brazilLayoutRef.current;
-						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'brazil';
-					} else if (dragOrigin === 'brazil') {
-						const tgt = mainLayout.current;
-						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'main';
+					if (brazilRef.current && brazilRef.current.measureInWindow) {
+							brazilRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
+									brazilLayoutRef.current = { x, y, width, height };
+							});
 					}
-					setDraggingItem(null);
-					setHighlightTarget(null);
-					if (droppedOn) {
-						setTransferQty('');
-						setTransferPrice('');
-						setTransferModalVisible(true);
-					}
-				}
-			});
-		}
+			} catch (err) {
+					// ignore measure errors
+			}
+			if (!panResponder.current) {
+					panResponder.current = PanResponder.create({
+							onStartShouldSetPanResponder: () => true,
+							onPanResponderMove: (_, gs) => {
+									dragPos.setValue({ x: gs.moveX - 40, y: gs.moveY - 24 });
+									const x = gs.moveX, y = gs.moveY;
+									if (origin === 'main') {
+											const tgt = brazilLayoutRef.current;
+											if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('brazil');
+											else setHighlightTarget(null);
+									} else if (origin === 'brazil') {
+											const tgt = mainLayout.current;
+											if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('main');
+											else setHighlightTarget(null);
+									}
+							},
+							onPanResponderRelease: (_, gs) => {
+									const x = gs.moveX, y = gs.moveY;
+									let droppedOn: 'main' | 'brazil' | null = null;
+									// use captured origin variable (closure) to determine target
+									if (origin === 'main') {
+											const tgt = brazilLayoutRef.current;
+											if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'brazil';
+									} else if (origin === 'brazil') {
+											const tgt = mainLayout.current;
+											if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) droppedOn = 'main';
+									}
+									setDraggingItem(null);
+									setHighlightTarget(null);
+									if (droppedOn) {
+											setTransferQty('');
+											setTransferPrice('');
+											setTransferModalVisible(true);
+									}
+							}
+					});
+			}
 	};
 
 	const onMainLayout = (ev: any) => {
+		// store rough layout (fallback) and try to get absolute coords via measureInWindow
 		const { x, y, width, height } = ev.nativeEvent.layout;
 		mainLayout.current = { x, y, width, height };
+		try {
+			if (mainRef.current && mainRef.current.measureInWindow) {
+				mainRef.current.measureInWindow((mx: number, my: number, mw: number, mh: number) => {
+					mainLayout.current = { x: mx, y: my, width: mw, height: mh };
+				});
+			}
+		} catch (e) {
+			// ignore
+		}
 	};
 	const onBrazilLayout = (ev: any) => {
 		const { x, y, width, height } = ev.nativeEvent.layout;
 		brazilLayoutRef.current = { x, y, width, height };
+		try {
+			if (brazilRef.current && brazilRef.current.measureInWindow) {
+				brazilRef.current.measureInWindow((bx: number, by: number, bw: number, bh: number) => {
+					brazilLayoutRef.current = { x: bx, y: by, width: bw, height: bh };
+				});
+			}
+		} catch (e) {
+			// ignore
+		}
 	};
 
 	const validateAndPerformTransfer = async () => {
