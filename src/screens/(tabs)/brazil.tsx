@@ -158,7 +158,6 @@ export default function BrazilStockScreen() {
 		const key = `move-${item.id}`;
 		return (
 			<Pressable
-				{...(panResponder.current ? panResponder.current.panHandlers : {})}
 				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
 				onLongPress={(e) => startDrag(item, 'main', e.nativeEvent)}
 				delayLongPress={220}
@@ -204,7 +203,6 @@ export default function BrazilStockScreen() {
 		const key = `ret-${item.id}`;
 		return (
 			<Pressable
-				{...(panResponder.current ? panResponder.current.panHandlers : {})}
 				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
 				onLongPress={(e) => startDrag(item, 'brazil', e.nativeEvent)}
 				delayLongPress={220}
@@ -346,7 +344,11 @@ export default function BrazilStockScreen() {
 		if (panResponder.current) return;
 		panResponder.current = PanResponder.create({
 			onStartShouldSetPanResponder: () => false,
+			onStartShouldSetPanResponderCapture: () => false,
+
+			// Grab the gesture as soon as finger moves after long-press
 			onMoveShouldSetPanResponder: () => !!transferSourceRef.current,
+			onMoveShouldSetPanResponderCapture: () => !!transferSourceRef.current,
 			onPanResponderMove: (_, gs) => {
 				if (!transferSourceRef.current) return;
 				// convert window coords -> overlay coords using root offset and keep preview centered under finger
@@ -380,6 +382,7 @@ export default function BrazilStockScreen() {
 				animateRelease(droppedOn);
 			},
 			onPanResponderTerminationRequest: () => false,
+			onPanResponderTerminate: () => animateRelease(null),
 		});
 	}, []);
 
@@ -482,6 +485,7 @@ export default function BrazilStockScreen() {
 	return (
 		<SafeAreaView
 			ref={rootRef}
+			{...(panResponder.current ? panResponder.current.panHandlers : {})}
 			onLayout={() => {
 				try {
 					rootRef.current?.measureInWindow?.((x: number, y: number) => {
@@ -505,7 +509,8 @@ export default function BrazilStockScreen() {
 						style={styles.listScroll}
 						showsVerticalScrollIndicator={false}
 						keyboardShouldPersistTaps="handled"
-						keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+								keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+								scrollEnabled={!draggingItem}
 						removeClippedSubviews={false}
 						windowSize={7}
 						initialNumToRender={12}
@@ -533,6 +538,7 @@ export default function BrazilStockScreen() {
 						showsVerticalScrollIndicator={false}
 						keyboardShouldPersistTaps="handled"
 						keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+						scrollEnabled={!draggingItem}
 						removeClippedSubviews={false}
 						windowSize={7}
 						initialNumToRender={12}
