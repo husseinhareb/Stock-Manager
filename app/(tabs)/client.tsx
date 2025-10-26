@@ -1,18 +1,18 @@
 // src/screens/(tabs)/client.tsx
-import { Colors } from '@constants/Colors';
-import { useColorScheme } from '@hooks/useColorScheme';
 import type { Article, Price } from '@/src/db';
 import {
-    deleteSavedClient,
-    fetchClientItems,
-    fetchPrices,
-    fetchSavedClients,
-    fetchSecondaryStock,
-    getSetting,
-    saveClient as persistClient,
-    sellSecondary,
+  deleteSavedClient,
+  fetchClientItems,
+  fetchPrices,
+  fetchSavedClients,
+  fetchSecondaryStock,
+  getSetting,
+  saveClient as persistClient,
+  sellSecondary,
 } from '@/src/db';
+import { Colors } from '@constants/Colors';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { useColorScheme } from '@hooks/useColorScheme';
 import { useFocusEffect } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
@@ -20,19 +20,19 @@ import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
-    BackHandler,
-    FlatList,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  BackHandler,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -456,51 +456,86 @@ export default function ClientScreen() {
         <Modal visible={!!detailModal} transparent animationType="slide" onRequestClose={() => { setDetailModal(null); }}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-              <View style={styles.receiptHeader}>
+              {/* Enhanced receipt header with icon */}
+              <View style={[styles.receiptHeader, { borderBottomWidth: 2, borderBottomColor: theme.primary + '20', paddingBottom: 16 }]}>
+                <View style={[styles.receiptIconContainer, { backgroundColor: theme.primary + '15' }]}>
+                  <Text style={{ fontSize: 32 }}>📋</Text>
+                </View>
                 <Text style={[styles.receiptTitle, { color: theme.primary }]}>{detailModal?.client}</Text>
-                <Text style={[styles.receiptMeta, { color: theme.placeholder }]}>{detailModal && detailModal.created_at ? new Date(detailModal.created_at).toLocaleString() : new Date().toLocaleString()}</Text>
+                <Text style={[styles.receiptMeta, { color: theme.placeholder }]}>
+                  📅 {detailModal && detailModal.created_at ? new Date(detailModal.created_at).toLocaleString() : new Date().toLocaleString()}
+                </Text>
+                <View style={[styles.receiptDivider, { backgroundColor: theme.primary }]} />
               </View>
 
-              <ScrollView style={[styles.detailList, styles.receiptBody]}>
-                <View style={styles.receiptColumnsHeader}>
-                  <Text style={[styles.colName, { color: theme.placeholder }]}>{t('client.table.item')}</Text>
-                  <Text style={[styles.colQty, { color: theme.placeholder }]}>{t('client.table.qty')}</Text>
-                  <Text style={[styles.colPrice, { color: theme.placeholder }]}>{t('client.table.unitPrice')}</Text>
-                  <Text style={[styles.colTotal, { color: theme.placeholder }]}>{t('client.table.total')}</Text>
+              <ScrollView style={[styles.detailList, styles.receiptBody]} showsVerticalScrollIndicator={false}>
+                <View style={[styles.receiptColumnsHeader, { backgroundColor: theme.primary + '08', borderRadius: 8, marginBottom: 4 }]}>
+                  <Text style={[styles.colName, { color: theme.primary, fontWeight: '800' }]}>{t('client.table.item')}</Text>
+                  <Text style={[styles.colQty, { color: theme.primary, fontWeight: '800' }]}>{t('client.table.qty')}</Text>
+                  <Text style={[styles.colPrice, { color: theme.primary, fontWeight: '800' }]}>{t('client.table.unitPrice')}</Text>
+                  <Text style={[styles.colTotal, { color: theme.primary, fontWeight: '800' }]}>{t('client.table.total')}</Text>
                 </View>
 
                 {detailModal?.items.map((it, idx) => (
-                  <View key={idx} style={[styles.receiptRow, idx % 2 ? styles.receiptRowAlt : null]}>
+                  <View key={idx} style={[
+                    styles.receiptRow, 
+                    idx % 2 ? styles.receiptRowAlt : null,
+                    { borderRadius: 6, marginBottom: 2 }
+                  ]}>
                     <Text style={[styles.colName, { color: theme.text }]} numberOfLines={2}>{it.name}</Text>
                     <Text style={[styles.colQty, { color: theme.text }]}>{String(it.quantity)}</Text>
                     <Text style={[styles.colPrice, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
-                    <Text style={[styles.colTotal, { color: theme.text }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
+                    <Text style={[styles.colTotal, { color: theme.text, fontWeight: '900' }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
                   </View>
                 ))}
               </ScrollView>
 
-              <View style={styles.receiptFooter}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingBottom: 8 }}>
+              {/* Enhanced footer with better visual hierarchy */}
+              <View style={[styles.receiptFooter, { backgroundColor: theme.primary + '05', borderRadius: 12, marginTop: 8 }]}>
+                <View style={[styles.receiptDashedLine, { borderTopColor: theme.border }]} />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingBottom: 12, paddingTop: 4 }}>
                   <Text style={[styles.receiptFooterLabel, { color: theme.text }]}>{t('client.table.subtotal')}</Text>
                   <Text style={[styles.receiptFooterValue, { color: theme.text }]}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-                  <Text style={[styles.receiptTotalLabel, { color: theme.primary }]}>{t('client.table.total')}</Text>
+                <View style={[styles.receiptTotalContainer, { backgroundColor: theme.primary + '12', borderRadius: 8 }]}>
+                  <Text style={[styles.receiptTotalLabel, { color: theme.primary }]}>💰 {t('client.table.total')}</Text>
                   <Text style={[styles.receiptTotalValue, { color: theme.primary }]}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
                 </View>
               </View>
 
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
-                <Pressable onPress={() => detailModal && shareReceipt(detailModal)} style={[styles.modalBtn, { backgroundColor: theme.accent }]}> 
-                  <Text style={{ color: '#fff' }}>{t('client.sharePDF')}</Text>
+              {/* Enhanced action buttons */}
+              <View style={styles.receiptActions}>
+                <Pressable 
+                  onPress={() => detailModal && shareReceipt(detailModal)} 
+                  style={({ pressed }) => [
+                    styles.receiptActionBtn, 
+                    styles.receiptShareBtn,
+                    { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 }
+                  ]}
+                > 
+                  <Text style={styles.receiptActionBtnText}>📤 {t('client.sharePDF')}</Text>
                 </Pressable>
                 {detailModal && (
-                  <Pressable onPress={() => { confirmDeleteSaved(detailModal.id); setDetailModal(null); }} style={[styles.modalBtn, { borderWidth: 1, borderColor: 'tomato', backgroundColor: 'transparent', marginLeft: 8 }]}> 
-                    <Text style={{ color: 'tomato', fontWeight: '600' }}>{t('common.delete')}</Text>
+                  <Pressable 
+                    onPress={() => { confirmDeleteSaved(detailModal.id); setDetailModal(null); }} 
+                    style={({ pressed }) => [
+                      styles.receiptActionBtn,
+                      styles.receiptDeleteBtn,
+                      { borderWidth: 2, borderColor: '#ef4444', backgroundColor: 'transparent', opacity: pressed ? 0.7 : 1 }
+                    ]}
+                  > 
+                    <Text style={[styles.receiptActionBtnText, { color: '#ef4444' }]}>🗑️ {t('common.delete')}</Text>
                   </Pressable>
                 )}
-                <Pressable onPress={() => setDetailModal(null)} style={[styles.modalBtn, { borderWidth: 1, borderColor: theme.accent, backgroundColor: 'transparent', marginLeft: 8 }]}> 
-                  <Text style={{ color: theme.accent, fontWeight: '600' }}>{t('common.close')}</Text>
+                <Pressable 
+                  onPress={() => setDetailModal(null)} 
+                  style={({ pressed }) => [
+                    styles.receiptActionBtn,
+                    styles.receiptCloseBtn,
+                    { borderWidth: 2, borderColor: theme.border, backgroundColor: 'transparent', opacity: pressed ? 0.7 : 1 }
+                  ]}
+                > 
+                  <Text style={[styles.receiptActionBtnText, { color: theme.text }]}>✕ {t('common.close')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -770,22 +805,105 @@ const styles = StyleSheet.create({
   badgeText: { marginLeft: 8, fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
   trashBtn: { marginLeft: 8, padding: 6, borderRadius: 8 },
 
-  // Receipt styles (for detail modal)
-  receiptHeader: { alignItems: 'center', marginBottom: 8 },
-  receiptTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 0.3 },
-  receiptMeta: { fontSize: 12, marginTop: 6, opacity: 0.9 },
-  receiptBody: { maxHeight: 320, backgroundColor: 'transparent' },
-  receiptColumnsHeader: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
-  receiptRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  receiptRowAlt: { backgroundColor: 'rgba(0,0,0,0.02)' },
-  colName: { flex: 1.6, fontSize: 14, fontWeight: '700' },
-  colQty: { width: 48, textAlign: 'center', fontWeight: '800' },
-  colPrice: { width: 84, textAlign: 'right', fontWeight: '700' },
-  colTotal: { width: 92, textAlign: 'right', fontWeight: '900', marginLeft: 12 },
-  receiptFooter: { paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  receiptFooterLabel: { fontSize: 14, fontWeight: '700' },
-  receiptFooterValue: { fontSize: 14, fontWeight: '700' },
-  receiptTotalLabel: { fontSize: 16, fontWeight: '900' },
-  receiptTotalValue: { fontSize: 18, fontWeight: '900' },
+  // Receipt styles (for detail modal) - Enhanced
+  receiptHeader: { alignItems: 'center', marginBottom: 12 },
+  receiptIconContainer: { 
+    width: 72, 
+    height: 72, 
+    borderRadius: 36, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    marginBottom: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  receiptTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 0.4, marginBottom: 6 },
+  receiptMeta: { fontSize: 13, marginTop: 4, opacity: 0.85, fontWeight: '600' },
+  receiptDivider: { 
+    width: 60, 
+    height: 3, 
+    borderRadius: 2, 
+    marginTop: 12,
+    opacity: 0.8,
+  },
+  receiptBody: { maxHeight: 340, backgroundColor: 'transparent', paddingHorizontal: 4 },
+  receiptColumnsHeader: { 
+    flexDirection: 'row', 
+    paddingHorizontal: 14, 
+    paddingVertical: 10, 
+    marginHorizontal: 4,
+  },
+  receiptRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 12, 
+    paddingHorizontal: 14,
+    marginHorizontal: 4,
+  },
+  receiptRowAlt: { backgroundColor: 'rgba(0,0,0,0.025)' },
+  colName: { flex: 1.6, fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
+  colQty: { width: 48, textAlign: 'center', fontWeight: '800', fontSize: 14 },
+  colPrice: { width: 84, textAlign: 'right', fontWeight: '700', fontSize: 14 },
+  colTotal: { width: 92, textAlign: 'right', fontWeight: '900', marginLeft: 12, fontSize: 15 },
+  receiptFooter: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 14, 
+    marginTop: 4,
+  },
+  receiptDashedLine: {
+    width: '100%',
+    borderTopWidth: 2,
+    borderStyle: 'dashed',
+    marginBottom: 12,
+    opacity: 0.3,
+  },
+  receiptFooterLabel: { fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
+  receiptFooterValue: { fontSize: 15, fontWeight: '700' },
+  receiptTotalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  receiptTotalLabel: { fontSize: 18, fontWeight: '900', letterSpacing: 0.3 },
+  receiptTotalValue: { fontSize: 20, fontWeight: '900', letterSpacing: 0.2 },
+  
+  // Receipt action buttons
+  receiptActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 16,
+    gap: 10,
+  },
+  receiptActionBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  receiptActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+  receiptShareBtn: {},
+  receiptDeleteBtn: {},
+  receiptCloseBtn: {},
 });
 

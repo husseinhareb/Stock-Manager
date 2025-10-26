@@ -1,6 +1,7 @@
 // src/screens/(tabs)/brazil.tsx
 import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -21,8 +22,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Colors } from '@constants/Colors';
-import { useColorScheme } from '@hooks/useColorScheme';
 import type { Article, Price } from '@/src/db';
 import {
 	fetchMainStock,
@@ -33,6 +32,8 @@ import {
 	returnToMain,
 	setPrice,
 } from '@/src/db';
+import { Colors } from '@constants/Colors';
+import { useColorScheme } from '@hooks/useColorScheme';
 
 export default function BrazilStockScreen() {
 	const scheme = useColorScheme();
@@ -161,11 +162,15 @@ export default function BrazilStockScreen() {
 				collapsable={false}
 				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
 				onLongPress={(e) => startDrag(item, 'main', e.nativeEvent)}
-				delayLongPress={220}
+				delayLongPress={180}
 				style={({ pressed }) => [
 					styles.card,
-					{ backgroundColor: theme.card, shadowColor: theme.shadow, opacity: draggingItem?.id === item.id ? 0 : 1 },
-					pressed && { transform: [{ scale: 0.98 }] }
+					{ 
+						backgroundColor: theme.card, 
+						shadowColor: theme.shadow, 
+						opacity: draggingItem?.id === item.id ? 0 : 1,
+						transform: pressed ? [{ scale: 0.97 }] : [{ scale: 1 }],
+					},
 				]}> 
 				<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
 				<Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
@@ -207,11 +212,15 @@ export default function BrazilStockScreen() {
 				collapsable={false}
 				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
 				onLongPress={(e) => startDrag(item, 'brazil', e.nativeEvent)}
-				delayLongPress={220}
+				delayLongPress={180}
 				style={({ pressed }) => [
 					styles.card,
-					{ backgroundColor: theme.card, shadowColor: theme.shadow, opacity: draggingItem?.id === item.id ? 0 : 1 },
-					pressed && { transform: [{ scale: 0.98 }] }
+					{ 
+						backgroundColor: theme.card, 
+						shadowColor: theme.shadow, 
+						opacity: draggingItem?.id === item.id ? 0 : 1,
+						transform: pressed ? [{ scale: 0.97 }] : [{ scale: 1 }],
+					},
 				]}> 
 				<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
 				<Text style={[styles.cardText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
@@ -261,13 +270,14 @@ export default function BrazilStockScreen() {
 		);
 	};
 
-	// --- Drag & drop state and handlers ---
+	// --- Enhanced Drag & drop state and handlers ---
 	const [draggingItem, setDraggingItem] = useState<Article | null>(null);
 	const [dragOrigin, setDragOrigin] = useState<'main' | 'brazil' | null>(null);
 	const dragPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-	// small scale + opacity to make the preview feel "stuck" to the finger
+	// Enhanced animations for better visual feedback
 	const dragScale = useRef(new Animated.Value(1)).current;
 	const dragOpacity = useRef(new Animated.Value(1)).current;
+	const dragRotation = useRef(new Animated.Value(0)).current; // Subtle rotation on drag
 	const panResponder = useRef<any>(null);
 	const mainLayout = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 	const brazilLayoutRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -275,8 +285,10 @@ export default function BrazilStockScreen() {
 	const brazilRef = useRef<any>(null);
 	const transferOriginRef = useRef<'main' | 'brazil' | null>(null);
 	const [highlightTarget, setHighlightTarget] = useState<'main' | 'brazil' | null>(null);
+	const [highlightIntensity, setHighlightIntensity] = useState(0); // For pulsing effect
 	// store the exact local press point inside the row so preview anchors to it
 	const pressOffsetRef = useRef({ dx: 0, dy: 0 });
+	const lastHapticTime = useRef(0); // Prevent haptic spam
 
 	// Transfer modal state
 	const [transferModalVisible, setTransferModalVisible] = useState(false);
@@ -298,9 +310,12 @@ export default function BrazilStockScreen() {
 
 	// Preview sizing for centering under finger is tracked in `previewSize` (measured per-row)
 
-	// helper to animate release / snap
+	// Enhanced animate release / snap with better feedback
 	const animateRelease = (droppedOn: 'main' | 'brazil' | null) => {
 		if (droppedOn) {
+			// Success haptic feedback
+			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+			
 			const origin = transferOriginRef.current;
 			let tgt = null;
 			if (origin === 'main') tgt = brazilLayoutRef.current;
@@ -310,9 +325,32 @@ export default function BrazilStockScreen() {
 				const { x: cx, y: cy } = rootOffsetRef.current;
 				const targetX = (tgt.x - cx) + tgt.width / 2 - previewSize.width / 2;
 				const targetY = (tgt.y - cy) + tgt.height / 2 - previewSize.height / 2;
+				
+				// Smooth snap animation with spring-like effect
 				Animated.parallel([
-					Animated.timing(dragPos, { toValue: { x: targetX, y: targetY }, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
-					Animated.timing(dragScale, { toValue: 0.95, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+					Animated.spring(dragPos, { 
+						toValue: { x: targetX, y: targetY }, 
+						friction: 8,
+						tension: 40,
+						useNativeDriver: false 
+					}),
+					Animated.timing(dragScale, { 
+						toValue: 0.85, 
+						duration: 200, 
+						easing: Easing.out(Easing.back(1.5)), 
+						useNativeDriver: false 
+					}),
+					Animated.timing(dragRotation, {
+						toValue: 0,
+						duration: 200,
+						easing: Easing.out(Easing.ease),
+						useNativeDriver: false,
+					}),
+					Animated.timing(dragOpacity, { 
+						toValue: 0.8, 
+						duration: 200, 
+						useNativeDriver: false 
+					}),
 				]).start(() => {
 					// open modal after the snap animation
 					setDraggingItem(null);
@@ -323,15 +361,36 @@ export default function BrazilStockScreen() {
 					// reset values
 					dragScale.setValue(1);
 					dragOpacity.setValue(1);
+					dragRotation.setValue(0);
 					dragPos.setValue({ x: 0, y: 0 });
 				});
 				return;
 			}
 		}
-		// cancelled or no valid target — fade out the preview quickly then clear
+		
+		// Cancelled - warning haptic
+		Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+		
+		// cancelled or no valid target — fade out with bounce
 		Animated.parallel([
-			Animated.timing(dragOpacity, { toValue: 0, duration: 140, easing: Easing.in(Easing.quad), useNativeDriver: false }),
-			Animated.timing(dragScale, { toValue: 0.9, duration: 140, easing: Easing.in(Easing.quad), useNativeDriver: false }),
+			Animated.timing(dragOpacity, { 
+				toValue: 0, 
+				duration: 250, 
+				easing: Easing.in(Easing.ease), 
+				useNativeDriver: false 
+			}),
+			Animated.timing(dragScale, { 
+				toValue: 0.7, 
+				duration: 250, 
+				easing: Easing.in(Easing.back(2)), 
+				useNativeDriver: false 
+			}),
+			Animated.timing(dragRotation, {
+				toValue: 10,
+				duration: 250,
+				easing: Easing.in(Easing.ease),
+				useNativeDriver: false,
+			}),
 		]).start(() => {
 			setDraggingItem(null);
 			setHighlightTarget(null);
@@ -339,6 +398,7 @@ export default function BrazilStockScreen() {
 			transferOriginRef.current = null;
 			dragScale.setValue(1);
 			dragOpacity.setValue(1);
+			dragRotation.setValue(0);
 			dragPos.setValue({ x: 0, y: 0 });
 		});
 	};
@@ -359,8 +419,8 @@ export default function BrazilStockScreen() {
 					const { x: cx, y: cy } = rootOffsetRef.current;
 					const { dx, dy } = pressOffsetRef.current;
 					const w = previewSizeRef.current.width, h = previewSizeRef.current.height;
-					// pickup scale (keep this in sync with startDrag animation). If you prefer perfect 1:1 tracking set s = 1.
-					const s = 1.04;
+					// pickup scale with smooth tracking
+					const s = 1.08;
 					const cxLocal = w / 2;
 					const cyLocal = h / 2;
 					const A = gs.moveX - cx;
@@ -369,17 +429,40 @@ export default function BrazilStockScreen() {
 					const left = A - s * dx + (s - 1) * cxLocal;
 					const top = B - s * dy + (s - 1) * cyLocal;
 					dragPos.setValue({ x: left, y: top });
+					
+					// Add subtle tilt based on drag direction
+					const tiltAmount = Math.max(-5, Math.min(5, gs.vx * 2));
+					dragRotation.setValue(tiltAmount);
+					
 					const x = gs.moveX, y = gs.moveY;
-				const origin = transferOriginRef.current;
-				if (origin === 'main') {
-					const tgt = brazilLayoutRef.current;
-					if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('brazil');
-					else setHighlightTarget(null);
-				} else if (origin === 'brazil') {
-					const tgt = mainLayout.current;
-					if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) setHighlightTarget('main');
-					else setHighlightTarget(null);
-				}
+					const origin = transferOriginRef.current;
+					let newTarget: 'main' | 'brazil' | null = null;
+					
+					if (origin === 'main') {
+						const tgt = brazilLayoutRef.current;
+						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) {
+							newTarget = 'brazil';
+						}
+					} else if (origin === 'brazil') {
+						const tgt = mainLayout.current;
+						if (tgt && x >= tgt.x && x <= tgt.x + tgt.width && y >= tgt.y && y <= tgt.y + tgt.height) {
+							newTarget = 'main';
+						}
+					}
+					
+					// Trigger haptic only when entering/leaving a drop zone
+					if (newTarget !== highlightTarget) {
+						const now = Date.now();
+						if (now - lastHapticTime.current > 100) { // Throttle haptics
+							if (newTarget) {
+								Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+							} else {
+								Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+							}
+							lastHapticTime.current = now;
+						}
+						setHighlightTarget(newTarget);
+					}
 			},
 			onPanResponderRelease: (_, gs) => {
 				if (!transferSourceRef.current) return;
@@ -401,6 +484,9 @@ export default function BrazilStockScreen() {
 	}, []);
 
 	const startDrag = (item: Article, origin: 'main' | 'brazil', nativeEvent: any) => {
+		// Immediate haptic feedback on pickup
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+		
 		setDraggingItem(item);
 	 	setDragOrigin(origin);
 	 	transferOriginRef.current = origin;
@@ -417,7 +503,7 @@ export default function BrazilStockScreen() {
 					};
 					// Convert window coords to overlay coords and position so the same local point sits under the finger
 					const { x: cx, y: cy } = rootOffsetRef.current;
-					const s = 1.04;
+					const s = 1.08;
 					const cxLocal = rw / 2;
 					const cyLocal = rh / 2;
 					const A = nativeEvent.pageX - cx;
@@ -426,12 +512,23 @@ export default function BrazilStockScreen() {
 					const top = B - s * pressOffsetRef.current.dy + (s - 1) * cyLocal;
 					dragPos.setValue({ x: left, y: top });
 
-					// subtle pick-up animation
+					// Enhanced pick-up animation with spring effect
 					dragScale.setValue(1);
-					dragOpacity.setValue(1);
+					dragOpacity.setValue(0.9);
+					dragRotation.setValue(0);
 					Animated.parallel([
-						Animated.timing(dragScale, { toValue: s, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: false }),
-						Animated.timing(dragOpacity, { toValue: 1, duration: 100, useNativeDriver: false }),
+						Animated.spring(dragScale, { 
+							toValue: s, 
+							friction: 7,
+							tension: 50,
+							useNativeDriver: false 
+						}),
+						Animated.timing(dragOpacity, { 
+							toValue: 0.95, 
+							duration: 150, 
+							easing: Easing.out(Easing.ease),
+							useNativeDriver: false 
+						}),
 					]).start();
 
 				// measure section bounds for hit-testing
@@ -444,7 +541,7 @@ export default function BrazilStockScreen() {
 				// fallback: assume the press was near center of the preview
 				pressOffsetRef.current = { dx: previewSize.width / 2, dy: previewSize.height / 2 };
 				const { x: cx, y: cy } = rootOffsetRef.current;
-				const s = 1.04;
+				const s = 1.08;
 				const cxLocal = previewSize.width / 2;
 				const cyLocal = previewSize.height / 2;
 				const A = nativeEvent.pageX - cx;
@@ -452,9 +549,15 @@ export default function BrazilStockScreen() {
 				const left = A - s * pressOffsetRef.current.dx + (s - 1) * cxLocal;
 				const top = B - s * pressOffsetRef.current.dy + (s - 1) * cyLocal;
 				dragPos.setValue({ x: left, y: top });
-				// minimal pick-up animation
-				dragScale.setValue(s);
-				dragOpacity.setValue(1);
+				// Enhanced pick-up animation
+				dragScale.setValue(1);
+				dragOpacity.setValue(0.9);
+				Animated.spring(dragScale, { 
+					toValue: s, 
+					friction: 7,
+					tension: 50,
+					useNativeDriver: false 
+				}).start();
 			}
 	};
 
@@ -533,7 +636,15 @@ export default function BrazilStockScreen() {
 				<View ref={mainRef} collapsable={false} onLayout={onMainLayout} style={[
 					styles.sectionContainer,
 					{ backgroundColor: theme.card, marginBottom: 0 },
-					highlightTarget === 'main' ? { borderColor: theme.primary, borderWidth: 2 } : {}
+					highlightTarget === 'main' ? { 
+						borderColor: theme.primary, 
+						borderWidth: 3,
+						backgroundColor: `${theme.primary}15`, // Slight tint
+						shadowColor: theme.primary,
+						shadowOpacity: 0.3,
+						shadowRadius: 10,
+						elevation: 8,
+					} : {}
 				]}> 
 					<Text style={[styles.sectionTitle, { color: theme.primary }]}>{t('brazil.chinaStock')}</Text>
 					<FlatList
@@ -561,7 +672,15 @@ export default function BrazilStockScreen() {
 				<View ref={brazilRef} collapsable={false} onLayout={onBrazilLayout} style={[
 					styles.sectionContainer,
 					{ backgroundColor: theme.card },
-					highlightTarget === 'brazil' ? { borderColor: theme.primary, borderWidth: 2 } : {}
+					highlightTarget === 'brazil' ? { 
+						borderColor: theme.primary, 
+						borderWidth: 3,
+						backgroundColor: `${theme.primary}15`, // Slight tint
+						shadowColor: theme.primary,
+						shadowOpacity: 0.3,
+						shadowRadius: 10,
+						elevation: 8,
+					} : {}
 				]}> 
 					<Text style={[styles.heading, { color: theme.primary }]}>{t('brazil.brazilStock')}</Text>
 					<FlatList
@@ -588,15 +707,53 @@ export default function BrazilStockScreen() {
 					</View>
 				</View>
 
-				{/* Drag preview overlay (captures pan events while dragging) */}
+				{/* Enhanced drag preview overlay with rotation */}
 				{draggingItem ? (
 					<View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 9999 }} pointerEvents="box-none">
 						{draggingItem ? (
-							<Animated.View pointerEvents="none" style={{ position: 'absolute', left: (dragPos as any).x, top: (dragPos as any).y, transform: [{ scale: dragScale }], opacity: dragOpacity, zIndex: 10000 }}>
-								<View style={[styles.card, { width: previewSize.width, height: previewSize.height, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.card, shadowColor: theme.shadow, overflow: 'hidden' }] }>
+							<Animated.View 
+								pointerEvents="none" 
+								style={{ 
+									position: 'absolute', 
+									left: (dragPos as any).x, 
+									top: (dragPos as any).y, 
+									transform: [
+										{ scale: dragScale },
+										{ 
+											rotate: dragRotation.interpolate({
+												inputRange: [-10, 0, 10],
+												outputRange: ['-3deg', '0deg', '3deg'],
+											})
+										}
+									], 
+									opacity: dragOpacity, 
+									zIndex: 10000 
+								}}
+							>
+								<View style={[
+									styles.card, 
+									{ 
+										width: previewSize.width, 
+										height: previewSize.height, 
+										paddingHorizontal: 12, 
+										paddingVertical: 10, 
+										borderRadius: 14, 
+										backgroundColor: theme.card, 
+										borderWidth: 2,
+										borderColor: theme.primary,
+										shadowColor: theme.shadow,
+										shadowOffset: { width: 0, height: 8 },
+										shadowOpacity: 0.3,
+										shadowRadius: 16,
+										elevation: 12,
+										overflow: 'hidden' 
+									}
+								]}>
 									<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
-									<Text style={[styles.cardText, { color: theme.text, maxWidth: 160 }]} numberOfLines={1}>{draggingItem.name}</Text>
-									<View style={[styles.badge, { backgroundColor: theme.accent, marginLeft: 8 }] }>
+									<Text style={[styles.cardText, { color: theme.text, maxWidth: 160, fontWeight: '800' }]} numberOfLines={1}>
+										{draggingItem.name}
+									</Text>
+									<View style={[styles.badge, { backgroundColor: theme.accent, marginLeft: 8 }]}>
 										<Text style={styles.badgeText}>{draggingItem.quantity}</Text>
 									</View>
 								</View>
@@ -609,29 +766,61 @@ export default function BrazilStockScreen() {
 				<Modal visible={transferModalVisible} transparent animationType="slide" onRequestClose={() => { setTransferModalVisible(false); }}>
 					<View style={styles.modalOverlay}>
 						<View style={[styles.modalContent, { backgroundColor: theme.card, shadowColor: theme.shadow }]}> 
-							<Text style={[styles.modalTitle, { color: theme.text }]}>{t('brazil.transfer.title')}</Text>
-							<TextInput
-								style={[styles.modalInput, { borderColor: theme.border }]}
-								placeholder={t('brazil.placeholder.qty')}
-								placeholderTextColor={theme.placeholder}
-								keyboardType="number-pad"
-								value={transferQty}
-								onChangeText={setTransferQty}
-							/>
-							<TextInput
-								style={[styles.modalInput, { borderColor: theme.border }]}
-								placeholder={t('brazil.placeholder.unitPrice')}
-								placeholderTextColor={theme.placeholder}
-								keyboardType={Platform.select({ ios: 'decimal-pad', android: 'number-pad' })}
-								value={transferPrice}
-								onChangeText={setTransferPrice}
-							/>
+							{/* Enhanced modal header */}
+							<View style={styles.modalHeader}>
+								<View style={[styles.modalIconContainer, { backgroundColor: theme.primary + '15' }]}>
+									<Text style={{ fontSize: 32 }}>📦</Text>
+								</View>
+								<Text style={[styles.modalTitle, { color: theme.primary }]}>{t('brazil.transfer.title')}</Text>
+								<View style={[styles.modalDivider, { backgroundColor: theme.primary }]} />
+							</View>
+							
+							{/* Enhanced input fields */}
+							<View style={styles.modalInputContainer}>
+								<Text style={[styles.inputLabel, { color: theme.text }]}>📊 {t('brazil.placeholder.qty')}</Text>
+								<TextInput
+									style={[styles.modalInput, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '05', color: theme.text }]}
+									placeholder={t('brazil.placeholder.qty')}
+									placeholderTextColor={theme.placeholder}
+									keyboardType="number-pad"
+									value={transferQty}
+									onChangeText={setTransferQty}
+								/>
+							</View>
+							
+							<View style={styles.modalInputContainer}>
+								<Text style={[styles.inputLabel, { color: theme.text }]}>💵 {t('brazil.placeholder.unitPrice')}</Text>
+								<TextInput
+									style={[styles.modalInput, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '05', color: theme.text }]}
+									placeholder={t('brazil.placeholder.unitPrice')}
+									placeholderTextColor={theme.placeholder}
+									keyboardType={Platform.select({ ios: 'decimal-pad', android: 'number-pad' })}
+									value={transferPrice}
+									onChangeText={setTransferPrice}
+								/>
+							</View>
+							
+							{/* Enhanced action buttons */}
 							<View style={styles.modalActions}>
-								<Pressable onPress={() => { setTransferModalVisible(false); transferSourceRef.current = null; transferOriginRef.current = null; setDragOrigin(null); setHighlightTarget(null); }} style={styles.modalBtn}>
-									<Text style={{ color: theme.text, fontWeight: '600' }}>{t('common.cancel')}</Text>
+								<Pressable 
+									onPress={() => { setTransferModalVisible(false); transferSourceRef.current = null; transferOriginRef.current = null; setDragOrigin(null); setHighlightTarget(null); }} 
+									style={({ pressed }) => [
+										styles.modalBtn,
+										styles.modalCancelBtn,
+										{ borderWidth: 2, borderColor: theme.border, opacity: pressed ? 0.7 : 1 }
+									]}
+								>
+									<Text style={[styles.modalBtnText, { color: theme.text }]}>✕ {t('common.cancel')}</Text>
 								</Pressable>
-								<Pressable onPress={validateAndPerformTransfer} style={[styles.modalBtn, { backgroundColor: theme.primary }]}>
-									<Text style={{ color: '#fff', fontWeight: '600' }}>{t('common.save')}</Text>
+								<Pressable 
+									onPress={validateAndPerformTransfer} 
+									style={({ pressed }) => [
+										styles.modalBtn, 
+										styles.modalSaveBtn,
+										{ backgroundColor: theme.primary, opacity: pressed ? 0.85 : 1 }
+									]}
+								>
+									<Text style={[styles.modalBtnText, { color: '#fff' }]}>✓ {t('common.save')}</Text>
 								</Pressable>
 							</View>
 						</View>
@@ -641,28 +830,56 @@ export default function BrazilStockScreen() {
 				<Modal visible={priceModalVisible} transparent animationType="slide" onRequestClose={() => { setPriceModalVisible(false); }}>
 					<View style={styles.modalOverlay}>
 						<View style={[styles.modalContent, { backgroundColor: theme.card, shadowColor: theme.shadow }]}> 
-							<Text style={[styles.modalTitle, { color: theme.text }]}> {t('brazil.setPrice', { name: priceModalArticle?.name })} </Text>
-							<TextInput
-								style={[styles.modalInput, { borderColor: theme.border }]}
-								placeholder={t('brazil.placeholder.unitPrice')}
-								placeholderTextColor={theme.placeholder}
-								keyboardType={Platform.select({ ios: 'decimal-pad', android: 'number-pad' })}
-								value={priceInput}
-								onChangeText={setPriceInput}
-								onSubmitEditing={onSavePrice}
-								autoCapitalize="none"
-								autoCorrect={false}
-								textContentType="none"
-								importantForAutofill="no"
-								returnKeyType="done"
-								blurOnSubmit
-							/>
+							{/* Enhanced modal header */}
+							<View style={styles.modalHeader}>
+								<View style={[styles.modalIconContainer, { backgroundColor: theme.primary + '15' }]}>
+									<Text style={{ fontSize: 32 }}>💰</Text>
+								</View>
+								<Text style={[styles.modalTitle, { color: theme.primary }]}>{t('brazil.setPrice', { name: priceModalArticle?.name })}</Text>
+								<View style={[styles.modalDivider, { backgroundColor: theme.primary }]} />
+							</View>
+							
+							{/* Enhanced input field */}
+							<View style={styles.modalInputContainer}>
+								<Text style={[styles.inputLabel, { color: theme.text }]}>💵 {t('brazil.placeholder.unitPrice')}</Text>
+								<TextInput
+									style={[styles.modalInput, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '05', color: theme.text }]}
+									placeholder={t('brazil.placeholder.unitPrice')}
+									placeholderTextColor={theme.placeholder}
+									keyboardType={Platform.select({ ios: 'decimal-pad', android: 'number-pad' })}
+									value={priceInput}
+									onChangeText={setPriceInput}
+									onSubmitEditing={onSavePrice}
+									autoCapitalize="none"
+									autoCorrect={false}
+									textContentType="none"
+									importantForAutofill="no"
+									returnKeyType="done"
+									blurOnSubmit
+								/>
+							</View>
+							
+							{/* Enhanced action buttons */}
 							<View style={styles.modalActions}>
-								<Pressable onPress={() => setPriceModalVisible(false)} style={styles.modalBtn}>
-									<Text style={{ color: theme.text, fontWeight: '600' }}>{t('common.cancel')}</Text>
+								<Pressable 
+									onPress={() => setPriceModalVisible(false)} 
+									style={({ pressed }) => [
+										styles.modalBtn,
+										styles.modalCancelBtn,
+										{ borderWidth: 2, borderColor: theme.border, opacity: pressed ? 0.7 : 1 }
+									]}
+								>
+									<Text style={[styles.modalBtnText, { color: theme.text }]}>✕ {t('common.cancel')}</Text>
 								</Pressable>
-								<Pressable onPress={onSavePrice} style={[styles.modalBtn, { backgroundColor: theme.primary }]} >
-									<Text style={{ color: '#fff', fontWeight: '600' }}>{t('common.save')}</Text>
+								<Pressable 
+									onPress={onSavePrice} 
+									style={({ pressed }) => [
+										styles.modalBtn,
+										styles.modalSaveBtn,
+										{ backgroundColor: theme.primary, opacity: pressed ? 0.85 : 1 }
+									]}
+								>
+									<Text style={[styles.modalBtnText, { color: '#fff' }]}>✓ {t('common.save')}</Text>
 								</Pressable>
 							</View>
 						</View>
@@ -815,11 +1032,22 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		flexShrink: 0,
 	},
-	modalActions: { flexDirection: 'row', justifyContent: 'flex-end' },
+	modalActions: { 
+		flexDirection: 'row', 
+		justifyContent: 'flex-end',
+		marginTop: 8,
+		gap: 10,
+	},
 	modalBtn: {
-		paddingVertical: 10,
-		paddingHorizontal: 18,
+		paddingVertical: 12,
+		paddingHorizontal: 20,
 		borderRadius: 12,
-		marginLeft: 12,
+		minWidth: 100,
+		alignItems: 'center',
+		elevation: 3,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.12,
+		shadowRadius: 6,
 	},
 });
