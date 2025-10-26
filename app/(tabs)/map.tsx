@@ -476,38 +476,38 @@ export default function MapScreen() {
                   <View style={[styles.receiptDivider, { backgroundColor: theme.primary }]} />
                 </View>
 
-                <ScrollView style={[styles.modalList, styles.receiptBody]} showsVerticalScrollIndicator={false}>
-                  <View style={[styles.receiptColumnsHeader, { backgroundColor: theme.primary + '08', borderRadius: 8, marginBottom: 4 }]}>
-                    <Text style={[styles.colName, { color: theme.primary, fontWeight: '800' }]}>Item</Text>
-                    <Text style={[styles.colQty, { color: theme.primary, fontWeight: '800' }]}>Qty</Text>
-                    <Text style={[styles.colPrice, { color: theme.primary, fontWeight: '800' }]}>Unit</Text>
-                    <Text style={[styles.colTotal, { color: theme.primary, fontWeight: '800' }]}>Line</Text>
+                <View style={[styles.receiptTableContainer, { borderColor: theme.border }]}>
+                  <View style={[styles.receiptColumnsHeader, { backgroundColor: theme.primary, borderTopLeftRadius: 12, borderTopRightRadius: 12 }]}>
+                    <Text style={[styles.colName, { color: '#fff', fontWeight: '800', fontSize: 13 }]}>Item</Text>
+                    <Text style={[styles.colQty, { color: '#fff', fontWeight: '800', fontSize: 13 }]}>Qty</Text>
+                    <Text style={[styles.colPrice, { color: '#fff', fontWeight: '800', fontSize: 13 }]}>Unit</Text>
+                    <Text style={[styles.colTotal, { color: '#fff', fontWeight: '800', fontSize: 13 }]}>Line</Text>
                   </View>
 
-                  {detailModal?.items.map((it, i) => (
-                    <View key={i} style={[
-                      styles.receiptRow, 
-                      i % 2 === 0 ? styles.receiptRowAlt : undefined,
-                      { borderRadius: 6, marginBottom: 2 }
-                    ]}>
-                      <Text style={[styles.colName, { color: theme.text }]} numberOfLines={2}>{it.name}</Text>
-                      <Text style={[styles.colQty, { color: theme.text }]}>{String(it.quantity)}</Text>
-                      <Text style={[styles.colPrice, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
-                      <Text style={[styles.colTotal, { color: theme.text, fontWeight: '900' }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
-                    </View>
-                  ))}
-                </ScrollView>
+                  <ScrollView style={styles.receiptBody} showsVerticalScrollIndicator={false}>
+                    {detailModal?.items.map((it, i) => (
+                      <View key={i} style={[
+                        styles.receiptRow, 
+                        i % 2 === 0 ? styles.receiptRowAlt : { backgroundColor: '#fff' },
+                        { borderBottomWidth: i === detailModal.items.length - 1 ? 0 : StyleSheet.hairlineWidth, borderBottomColor: theme.border }
+                      ]}>
+                        <Text style={[styles.colName, { color: theme.text }]} numberOfLines={2}>{it.name}</Text>
+                        <Text style={[styles.colQty, { color: theme.text }]}>{String(it.quantity)}</Text>
+                        <Text style={[styles.colPrice, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
+                        <Text style={[styles.colTotal, { color: theme.text, fontWeight: '900' }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
 
                 {/* Enhanced footer with better visual hierarchy */}
-                <View style={[styles.receiptFooter, { backgroundColor: theme.primary + '05', borderRadius: 12, marginTop: 8 }]}>
-                  <View style={[styles.receiptDashedLine, { borderTopColor: theme.border }]} />
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingBottom: 12, paddingTop: 4 }}>
-                    <Text style={[styles.receiptFooterLabel, { color: theme.text }]}>Subtotal</Text>
-                    <Text style={[styles.receiptFooterValue, { color: theme.text }]}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
-                  </View>
-                  <View style={[styles.receiptTotalContainer, { backgroundColor: theme.primary + '12', borderRadius: 8 }]}>
-                    <Text style={[styles.receiptTotalLabel, { color: theme.primary }]}>💰 Total</Text>
-                    <Text style={[styles.receiptTotalValue, { color: theme.primary }]}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
+                <View style={[styles.receiptFooter, { borderRadius: 12, marginTop: 16 }]}>
+                  <View style={[styles.receiptTotalContainer, { backgroundColor: theme.primary, borderRadius: 12 }]}>
+                    <View style={styles.receiptTotalRow}>
+                      <Text style={styles.receiptTotalIcon}>💰</Text>
+                      <Text style={styles.receiptTotalLabel}>Total</Text>
+                    </View>
+                    <Text style={styles.receiptTotalValue}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
                   </View>
                 </View>
 
@@ -516,22 +516,20 @@ export default function MapScreen() {
                   <Pressable 
                     style={({ pressed }) => [
                       styles.receiptActionBtn,
-                      styles.receiptDeleteBtn,
-                      { borderWidth: 2, borderColor: '#ef4444', backgroundColor: 'transparent', opacity: pressed ? 0.7 : 1 }
+                      { backgroundColor: '#ef4444', opacity: pressed ? 0.85 : 1, flex: 1 }
                     ]} 
                     onPress={() => detailModal && confirmDeletePin(detailModal.pinId)}
                   >
-                    <Text style={[styles.receiptActionBtnText, { color: '#ef4444' }]}>🗑️ {t('map.deletePin')}</Text>
+                    <Text style={styles.receiptActionBtnText}>🗑️ {t('map.deletePin')}</Text>
                   </Pressable>
                   <Pressable 
                     style={({ pressed }) => [
                       styles.receiptActionBtn,
-                      styles.receiptCloseBtn,
-                      { borderWidth: 2, borderColor: theme.border, backgroundColor: theme.primary, opacity: pressed ? 0.8 : 1 }
+                      { backgroundColor: theme.text + '20', opacity: pressed ? 0.85 : 1, flex: 1 }
                     ]} 
                     onPress={() => setDetailModal(null)}
                   >
-                    <Text style={[styles.receiptActionBtnText, { color: '#fff' }]}>✕ {t('common.close')}</Text>
+                    <Text style={[styles.receiptActionBtnText, { color: theme.text }]}>✕ {t('common.close')}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -571,11 +569,11 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modal: {
-    width: "92%",
-    maxWidth: 520,
-    maxHeight: "78%",
+    width: "96%",
+    maxWidth: 680,
+    maxHeight: "85%",
     borderRadius: 12,
-    padding: 22,
+    padding: 26,
     elevation: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 16 },
@@ -621,7 +619,7 @@ const styles = StyleSheet.create({
   // ----- Client Detail Modal (bought articles) -----
   // Scrollable list container with nice frame
   modalList: {
-    maxHeight: 380,
+    maxHeight: 480,
     marginTop: 4,
     marginBottom: 12,
     borderRadius: 16,
@@ -673,53 +671,63 @@ const styles = StyleSheet.create({
     marginTop: 12,
     opacity: 0.8,
   },
-  receiptBody: { maxHeight: 340, backgroundColor: 'transparent', paddingHorizontal: 4 },
+  receiptTableContainer: {
+    borderWidth: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  receiptBody: { 
+    maxHeight: 480, 
+    backgroundColor: '#fff',
+  },
   receiptColumnsHeader: { 
     flexDirection: 'row', 
-    paddingHorizontal: 14, 
-    paddingVertical: 10, 
-    marginHorizontal: 4,
+    paddingHorizontal: 16, 
+    paddingVertical: 14,
   },
   receiptRow: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    paddingVertical: 12, 
-    paddingHorizontal: 14,
-    marginHorizontal: 4,
-  },
-  receiptRowAlt: { backgroundColor: 'rgba(0,0,0,0.025)' },
-  colName: { flex: 1.6, fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
-  colQty: { width: 48, textAlign: 'center', fontWeight: '800', fontSize: 14 },
-  colPrice: { width: 84, textAlign: 'right', fontWeight: '700', fontSize: 14 },
-  colTotal: { width: 92, textAlign: 'right', fontWeight: '900', marginLeft: 12, fontSize: 15 },
-  receiptFooter: { 
-    paddingHorizontal: 16, 
     paddingVertical: 14, 
-    marginTop: 4,
+    paddingHorizontal: 16,
+    minHeight: 52,
   },
-  receiptDashedLine: {
-    width: '100%',
-    borderTopWidth: 2,
-    borderStyle: 'dashed',
-    marginBottom: 12,
-    opacity: 0.3,
+  receiptRowAlt: { backgroundColor: '#f9fafb' },
+  colName: { flex: 2, fontSize: 15, fontWeight: '600', letterSpacing: 0.1 },
+  colQty: { width: 60, textAlign: 'center', fontWeight: '700', fontSize: 15 },
+  colPrice: { width: 90, textAlign: 'right', fontWeight: '600', fontSize: 15 },
+  colTotal: { width: 100, textAlign: 'right', fontWeight: '800', fontSize: 16 },
+  receiptFooter: { 
+    paddingHorizontal: 0, 
+    paddingVertical: 0, 
+    marginTop: 4,
   },
   receiptFooterLabel: { fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
   receiptFooterValue: { fontSize: 15, fontWeight: '700' },
   receiptTotalContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     width: '100%',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    elevation: 2,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
-  receiptTotalLabel: { fontSize: 18, fontWeight: '900', letterSpacing: 0.3 },
-  receiptTotalValue: { fontSize: 20, fontWeight: '900', letterSpacing: 0.2 },
+  receiptTotalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  receiptTotalIcon: {
+    fontSize: 24,
+  },
+  receiptTotalLabel: { fontSize: 20, fontWeight: '900', letterSpacing: 0.3, color: '#fff' },
+  receiptTotalValue: { fontSize: 24, fontWeight: '900', letterSpacing: 0.2, color: '#fff' },
   
   // Receipt action buttons
   receiptActions: {
