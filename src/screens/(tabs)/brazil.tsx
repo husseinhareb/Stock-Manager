@@ -158,6 +158,7 @@ export default function BrazilStockScreen() {
 		const key = `move-${item.id}`;
 		return (
 			<Pressable
+				collapsable={false}
 				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
 				onLongPress={(e) => startDrag(item, 'main', e.nativeEvent)}
 				delayLongPress={220}
@@ -203,6 +204,7 @@ export default function BrazilStockScreen() {
 		const key = `ret-${item.id}`;
 		return (
 			<Pressable
+				collapsable={false}
 				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
 				onLongPress={(e) => startDrag(item, 'brazil', e.nativeEvent)}
 				delayLongPress={220}
@@ -273,6 +275,8 @@ export default function BrazilStockScreen() {
 	const brazilRef = useRef<any>(null);
 	const transferOriginRef = useRef<'main' | 'brazil' | null>(null);
 	const [highlightTarget, setHighlightTarget] = useState<'main' | 'brazil' | null>(null);
+	// store the exact local press point inside the row so preview anchors to it
+	const pressOffsetRef = useRef({ dx: 0, dy: 0 });
 
 	// Transfer modal state
 	const [transferModalVisible, setTransferModalVisible] = useState(false);
@@ -349,13 +353,23 @@ export default function BrazilStockScreen() {
 			// Grab the gesture as soon as finger moves after long-press
 			onMoveShouldSetPanResponder: () => !!transferSourceRef.current,
 			onMoveShouldSetPanResponderCapture: () => !!transferSourceRef.current,
-			onPanResponderMove: (_, gs) => {
-				if (!transferSourceRef.current) return;
-				// convert window coords -> overlay coords using root offset and keep preview centered under finger
-				const { x: cx, y: cy } = rootOffsetRef.current;
-				const w = previewSizeRef.current.width, h = previewSizeRef.current.height;
-				dragPos.setValue({ x: gs.moveX - cx - w / 2, y: gs.moveY - cy - h / 2 });
-				const x = gs.moveX, y = gs.moveY;
+				onPanResponderMove: (_, gs) => {
+					if (!transferSourceRef.current) return;
+					// convert window coords -> overlay coords using root offset and keep preview anchored at the exact press point
+					const { x: cx, y: cy } = rootOffsetRef.current;
+					const { dx, dy } = pressOffsetRef.current;
+					const w = previewSizeRef.current.width, h = previewSizeRef.current.height;
+					// pickup scale (keep this in sync with startDrag animation). If you prefer perfect 1:1 tracking set s = 1.
+					const s = 1.04;
+					const cxLocal = w / 2;
+					const cyLocal = h / 2;
+					const A = gs.moveX - cx;
+					const B = gs.moveY - cy;
+					// keep the exact pressed point under the finger while scaling about the center
+					const left = A - s * dx + (s - 1) * cxLocal;
+					const top = B - s * dy + (s - 1) * cyLocal;
+					dragPos.setValue({ x: left, y: top });
+					const x = gs.moveX, y = gs.moveY;
 				const origin = transferOriginRef.current;
 				if (origin === 'main') {
 					const tgt = brazilLayoutRef.current;
@@ -394,20 +408,31 @@ export default function BrazilStockScreen() {
 
 		// Try to measure the actual row so the preview matches its size and position
 		try {
-			rowRefs.current[item.id]?.measureInWindow?.((rx: number, ry: number, rw: number, rh: number) => {
-				setPreviewSize({ width: rw, height: rh });
-				// Convert window coords to overlay coords
-				const { x: cx, y: cy } = rootOffsetRef.current;
-				// Center preview under the original long-press point
-				dragPos.setValue({ x: nativeEvent.pageX - cx - rw / 2, y: nativeEvent.pageY - cy - rh / 2 });
+				rowRefs.current[item.id]?.measureInWindow?.((rx: number, ry: number, rw: number, rh: number) => {
+					setPreviewSize({ width: rw, height: rh });
+					// store exact local touch offset inside the row (relative to row's top-left)
+					pressOffsetRef.current = {
+						dx: nativeEvent.pageX - rx,
+						dy: nativeEvent.pageY - ry,
+					};
+					// Convert window coords to overlay coords and position so the same local point sits under the finger
+					const { x: cx, y: cy } = rootOffsetRef.current;
+					const s = 1.04;
+					const cxLocal = rw / 2;
+					const cyLocal = rh / 2;
+					const A = nativeEvent.pageX - cx;
+					const B = nativeEvent.pageY - cy;
+					const left = A - s * pressOffsetRef.current.dx + (s - 1) * cxLocal;
+					const top = B - s * pressOffsetRef.current.dy + (s - 1) * cyLocal;
+					dragPos.setValue({ x: left, y: top });
 
-				// subtle pick-up animation
-				dragScale.setValue(1);
-				dragOpacity.setValue(1);
-				Animated.parallel([
-					Animated.timing(dragScale, { toValue: 1.04, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: false }),
-					Animated.timing(dragOpacity, { toValue: 1, duration: 100, useNativeDriver: false }),
-				]).start();
+					// subtle pick-up animation
+					dragScale.setValue(1);
+					dragOpacity.setValue(1);
+					Animated.parallel([
+						Animated.timing(dragScale, { toValue: s, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+						Animated.timing(dragOpacity, { toValue: 1, duration: 100, useNativeDriver: false }),
+					]).start();
 
 				// measure section bounds for hit-testing
 				try {
@@ -415,14 +440,22 @@ export default function BrazilStockScreen() {
 					brazilRef.current?.measureInWindow?.((x: number, y: number, w: number, h: number) => { brazilLayoutRef.current = { x, y, width: w, height: h }; });
 				} catch {}
 			});
-		} catch {
-			// fallback: center under finger using current previewSize
-			const { x: cx, y: cy } = rootOffsetRef.current;
-			dragPos.setValue({ x: nativeEvent.pageX - cx - previewSize.width / 2, y: nativeEvent.pageY - cy - previewSize.height / 2 });
-			// minimal pick-up animation
-			dragScale.setValue(1.04);
-			dragOpacity.setValue(1);
-		}
+			} catch {
+				// fallback: assume the press was near center of the preview
+				pressOffsetRef.current = { dx: previewSize.width / 2, dy: previewSize.height / 2 };
+				const { x: cx, y: cy } = rootOffsetRef.current;
+				const s = 1.04;
+				const cxLocal = previewSize.width / 2;
+				const cyLocal = previewSize.height / 2;
+				const A = nativeEvent.pageX - cx;
+				const B = nativeEvent.pageY - cy;
+				const left = A - s * pressOffsetRef.current.dx + (s - 1) * cxLocal;
+				const top = B - s * pressOffsetRef.current.dy + (s - 1) * cyLocal;
+				dragPos.setValue({ x: left, y: top });
+				// minimal pick-up animation
+				dragScale.setValue(s);
+				dragOpacity.setValue(1);
+			}
 	};
 
 	const onMainLayout = (ev: any) => {
@@ -485,6 +518,7 @@ export default function BrazilStockScreen() {
 	return (
 		<SafeAreaView
 			ref={rootRef}
+			collapsable={false}
 			{...(panResponder.current ? panResponder.current.panHandlers : {})}
 			onLayout={() => {
 				try {
@@ -496,7 +530,7 @@ export default function BrazilStockScreen() {
 			style={[styles.container, { backgroundColor: theme.background }]}
 		> 
 			<KeyboardAvoidingView style={styles.container} behavior={Platform.select({ ios: 'padding' })}>
-				<View ref={mainRef} onLayout={onMainLayout} style={[
+				<View ref={mainRef} collapsable={false} onLayout={onMainLayout} style={[
 					styles.sectionContainer,
 					{ backgroundColor: theme.card, marginBottom: 0 },
 					highlightTarget === 'main' ? { borderColor: theme.primary, borderWidth: 2 } : {}
@@ -524,7 +558,7 @@ export default function BrazilStockScreen() {
 					</View>
 				</View>
 
-				<View ref={brazilRef} onLayout={onBrazilLayout} style={[
+				<View ref={brazilRef} collapsable={false} onLayout={onBrazilLayout} style={[
 					styles.sectionContainer,
 					{ backgroundColor: theme.card },
 					highlightTarget === 'brazil' ? { borderColor: theme.primary, borderWidth: 2 } : {}
