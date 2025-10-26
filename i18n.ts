@@ -1,11 +1,11 @@
-// app/i18n.ts
+// i18n configuration
+import * as Localization from 'expo-localization';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import * as Localization from 'expo-localization';
-import en from './app/locales/en.json';
-import es from './app/locales/es.json';
-import ar from './app/locales/ar.json';
-import fr from './app/locales/fr.json';
+import ar from './src/locales/ar.json';
+import en from './src/locales/en.json';
+import es from './src/locales/es.json';
+import fr from './src/locales/fr.json';
 
 const locales = Localization.getLocales();
 const language = locales[0]?.languageCode ?? 'en';

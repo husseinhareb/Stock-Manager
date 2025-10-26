@@ -2,8 +2,8 @@
 import React from 'react';
 import { FontAwesome } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@hooks/useColorScheme';
+import { Colors } from '@constants/Colors';
 import { useTranslation } from 'react-i18next';
 
 export default function TabLayout() {

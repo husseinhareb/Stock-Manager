@@ -1,6 +1,6 @@
 // app/(tabs)/map.tsx
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@constants/Colors';
+import { useColorScheme } from '@hooks/useColorScheme';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';

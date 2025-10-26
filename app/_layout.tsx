@@ -1,7 +1,7 @@
 // app/_layout.tsx
 // Must import gesture handler at the very top before any navigation imports
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@constants/Colors';
+import { useColorScheme } from '@hooks/useColorScheme';
 import { ThemeProvider } from '@/src/theme/ThemeProvider';
 import { FontAwesome } from '@expo/vector-icons';
 import { Drawer } from 'expo-router/drawer';

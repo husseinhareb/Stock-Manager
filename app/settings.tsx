@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import { useColorScheme, useThemePref } from '@/hooks/useColorScheme'; // <-- use global theme context
-import { Colors } from '@/constants/Colors';
+import { useColorScheme, useThemePref } from '@hooks/useColorScheme'; // <-- use global theme context
+import { Colors } from '@constants/Colors';
 import { useTranslation } from 'react-i18next';
 import { saveSetting, getSetting } from '../src/db';
 
