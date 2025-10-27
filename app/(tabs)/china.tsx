@@ -140,9 +140,9 @@ export default function ChinaStockScreen() {
         const nameRaw = String(row[itemCol] ?? '').trim();
         const name = nameRaw;
 
-  // Stop parsing on TOTAL, EOF or IP PACKING markers (case-insensitive)
-  const low = name.toLowerCase().replace(/[:\s]+$/,'');
-  if (low === 'total' || low === 'eof' || low.includes('packing')) break;
+        // Stop parsing on TOTAL, EOF or IP PACKING markers (case-insensitive)
+        const low = name.toLowerCase().replace(/[:\s]+$/, '');
+        if (low === 'total' || low === 'eof' || low.includes('packing')) break;
 
         const qtyRaw = row[qtyCol];
         if (!name) continue;
@@ -312,7 +312,7 @@ export default function ChinaStockScreen() {
             containerStyle={{ flex: 1 }}
             contentContainerStyle={styles.list}
             ListEmptyComponent={
-              <Text style={[styles.emptyText, { color: theme.placeholder }]}> 
+              <Text style={[styles.emptyText, { color: theme.placeholder }]}>
                 {t('china.empty')}
               </Text>
             }
@@ -352,7 +352,7 @@ export default function ChinaStockScreen() {
               <Pressable onPress={() => setEditing(null)} style={styles.modalBtn}>
                 <Text style={{ color: theme.accent, fontWeight: '600' }}>{t('common.cancel')}</Text>
               </Pressable>
-              <Pressable onPress={handleSaveEdit} style={[styles.modalBtn, { backgroundColor: theme.accent }]}> 
+              <Pressable onPress={handleSaveEdit} style={[styles.modalBtn, { backgroundColor: theme.accent }]}>
                 <Text style={{ color: '#fff' }}>{t('china.save')}</Text>
               </Pressable>
             </View>

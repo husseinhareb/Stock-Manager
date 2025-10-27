@@ -455,84 +455,113 @@ export default function ClientScreen() {
         {/* Detail Modal */}
         <Modal visible={!!detailModal} transparent animationType="slide" onRequestClose={() => { setDetailModal(null); }}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalBox, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-              {/* Enhanced receipt header with icon */}
-              <View style={[styles.receiptHeader, { borderBottomWidth: 2, borderBottomColor: theme.primary + '20', paddingBottom: 16 }]}>
-                <View style={[styles.receiptIconContainer, { backgroundColor: theme.primary + '15' }]}>
-                  <Text style={{ fontSize: 32 }}>📋</Text>
-                </View>
-                <Text style={[styles.receiptTitle, { color: theme.primary }]}>{detailModal?.client}</Text>
-                <Text style={[styles.receiptMeta, { color: theme.placeholder }]}>
-                  📅 {detailModal && detailModal.created_at ? new Date(detailModal.created_at).toLocaleString() : new Date().toLocaleString()}
-                </Text>
-                <View style={[styles.receiptDivider, { backgroundColor: theme.primary }]} />
+            <View style={styles.receiptPaper}>
+              {/* Receipt Header - Store/Business Info */}
+              <View style={styles.receiptHeader}>
+                <FontAwesome name="shopping-bag" size={28} color="#2c3e50" />
+                <Text style={styles.receiptStoreName}>RECEIPT</Text>
+                <View style={styles.receiptDashedLine} />
               </View>
 
-              <View style={[styles.receiptTableContainer, { borderColor: theme.border }]}>
-                <View style={[styles.receiptColumnsHeader, { backgroundColor: theme.primary, borderTopLeftRadius: 12, borderTopRightRadius: 12 }]}>
-                  <Text style={[styles.colName, { color: '#fff', fontWeight: '800', fontSize: 13 }]}>{t('client.table.item')}</Text>
-                  <Text style={[styles.colQty, { color: '#fff', fontWeight: '800', fontSize: 13 }]}>{t('client.table.qty')}</Text>
-                  <Text style={[styles.colPrice, { color: '#fff', fontWeight: '800', fontSize: 13 }]}>{t('client.table.unitPrice')}</Text>
-                  <Text style={[styles.colTotal, { color: '#fff', fontWeight: '800', fontSize: 13 }]}>{t('client.table.total')}</Text>
+              {/* Customer & Date Info */}
+              <View style={styles.receiptInfoSection}>
+                <View style={styles.receiptInfoRow}>
+                  <Text style={styles.receiptLabel}>Customer:</Text>
+                  <Text style={styles.receiptValue}>{detailModal?.client}</Text>
                 </View>
+                <View style={styles.receiptInfoRow}>
+                  <Text style={styles.receiptLabel}>Date:</Text>
+                  <Text style={styles.receiptValue}>
+                    {detailModal && detailModal.created_at ? new Date(detailModal.created_at).toLocaleDateString() : new Date().toLocaleDateString()}
+                  </Text>
+                </View>
+                <View style={styles.receiptInfoRow}>
+                  <Text style={styles.receiptLabel}>Time:</Text>
+                  <Text style={styles.receiptValue}>
+                    {detailModal && detailModal.created_at ? new Date(detailModal.created_at).toLocaleTimeString() : new Date().toLocaleTimeString()}
+                  </Text>
+                </View>
+                <View style={styles.receiptDashedLine} />
+              </View>
 
-                <ScrollView style={styles.receiptBody} showsVerticalScrollIndicator={false}>
-                  {detailModal?.items.map((it, idx) => (
-                    <View key={idx} style={[
-                      styles.receiptRow, 
-                      idx % 2 ? styles.receiptRowAlt : { backgroundColor: '#fff' },
-                      { borderBottomWidth: idx === detailModal.items.length - 1 ? 0 : StyleSheet.hairlineWidth, borderBottomColor: theme.border }
-                    ]}>
-                      <Text style={[styles.colName, { color: theme.text }]} numberOfLines={2}>{it.name}</Text>
-                      <Text style={[styles.colQty, { color: theme.text }]}>{String(it.quantity)}</Text>
-                      <Text style={[styles.colPrice, { color: theme.text }]}>{`${currencySymbol}${it.unitPrice.toFixed(2)}`}</Text>
-                      <Text style={[styles.colTotal, { color: theme.text, fontWeight: '900' }]}>{`${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}`}</Text>
+              {/* Items List */}
+              <ScrollView style={styles.receiptItemsScroll} showsVerticalScrollIndicator={false}>
+                {detailModal?.items.map((it, idx) => (
+                  <View key={idx}>
+                    <View style={styles.receiptItemRow}>
+                      <View style={styles.receiptItemNameQty}>
+                        <Text style={styles.receiptItemName} numberOfLines={2}>{it.name}</Text>
+                        <Text style={styles.receiptItemQtyPrice}>
+                          {String(it.quantity)} x {currencySymbol}{it.unitPrice.toFixed(2)}
+                        </Text>
+                      </View>
+                      <Text style={styles.receiptItemTotal}>
+                        {currencySymbol}{(it.quantity * it.unitPrice).toFixed(2)}
+                      </Text>
                     </View>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Enhanced footer with better visual hierarchy */}
-              <View style={[styles.receiptFooter, { borderRadius: 12, marginTop: 16 }]}>
-                <View style={[styles.receiptTotalContainer, { backgroundColor: theme.primary, borderRadius: 12 }]}>
-                  <View style={styles.receiptTotalRow}>
-                    <Text style={styles.receiptTotalIcon}>💰</Text>
-                    <Text style={styles.receiptTotalLabel}>{t('client.table.total')}</Text>
+                    {idx < detailModal.items.length - 1 && <View style={styles.receiptDottedLine} />}
                   </View>
-                  <Text style={styles.receiptTotalValue}>{detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}</Text>
+                ))}
+              </ScrollView>
+
+              {/* Total Section */}
+              <View style={styles.receiptDashedLine} />
+              <View style={styles.receiptTotalSection}>
+                <View style={styles.receiptSubtotalRow}>
+                  <Text style={styles.receiptSubtotalLabel}>Subtotal:</Text>
+                  <Text style={styles.receiptSubtotalValue}>
+                    {detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}
+                  </Text>
                 </View>
+                <View style={styles.receiptDoubleLine} />
+                <View style={styles.receiptGrandTotalRow}>
+                  <Text style={styles.receiptGrandTotalLabel}>TOTAL:</Text>
+                  <Text style={styles.receiptGrandTotalValue}>
+                    {detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}
+                  </Text>
+                </View>
+                <View style={styles.receiptDoubleLine} />
               </View>
 
-              {/* Enhanced action buttons */}
+              {/* Thank You Message */}
+              <View style={styles.receiptFooterMsg}>
+                <Text style={styles.receiptThankYou}>Thank You!</Text>
+                <Text style={styles.receiptFooterText}>Please come again</Text>
+              </View>
+
+              {/* Action Buttons */}
               <View style={styles.receiptActions}>
                 <Pressable 
                   onPress={() => detailModal && shareReceipt(detailModal)} 
                   style={({ pressed }) => [
                     styles.receiptActionBtn, 
-                    { backgroundColor: '#10b981', opacity: pressed ? 0.85 : 1, flex: 1 }
+                    { backgroundColor: '#10b981', opacity: pressed ? 0.85 : 1 }
                   ]}
                 > 
-                  <Text style={styles.receiptActionBtnText}>📤 {t('client.sharePDF')}</Text>
+                  <FontAwesome name="share-square-o" size={16} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.receiptActionBtnText}>Share</Text>
                 </Pressable>
                 {detailModal && (
                   <Pressable 
                     onPress={() => { confirmDeleteSaved(detailModal.id); setDetailModal(null); }} 
                     style={({ pressed }) => [
                       styles.receiptActionBtn,
-                      { backgroundColor: '#ef4444', opacity: pressed ? 0.85 : 1, flex: 1 }
+                      { backgroundColor: '#ef4444', opacity: pressed ? 0.85 : 1 }
                     ]}
                   > 
-                    <Text style={styles.receiptActionBtnText}>🗑️ {t('common.delete')}</Text>
+                    <FontAwesome name="trash-o" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.receiptActionBtnText}>Delete</Text>
                   </Pressable>
                 )}
                 <Pressable 
                   onPress={() => setDetailModal(null)} 
                   style={({ pressed }) => [
                     styles.receiptActionBtn,
-                    { backgroundColor: theme.text + '20', opacity: pressed ? 0.85 : 1, flex: 1 }
+                    { backgroundColor: '#6b7280', opacity: pressed ? 0.85 : 1 }
                   ]}
                 > 
-                  <Text style={[styles.receiptActionBtnText, { color: theme.text }]}>✕ {t('common.close')}</Text>
+                  <FontAwesome name="times" size={16} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.receiptActionBtnText}>Close</Text>
                 </Pressable>
               </View>
             </View>
@@ -803,114 +832,182 @@ const styles = StyleSheet.create({
   badgeText: { marginLeft: 8, fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
   trashBtn: { marginLeft: 8, padding: 6, borderRadius: 8 },
 
-  // Receipt styles (for detail modal) - Enhanced
-  receiptHeader: { alignItems: 'center', marginBottom: 12 },
-  receiptIconContainer: { 
-    width: 72, 
-    height: 72, 
-    borderRadius: 36, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    marginBottom: 12,
-    elevation: 4,
+  // Receipt Paper Styles - Traditional Receipt Look
+  receiptPaper: {
+    width: '92%',
+    maxWidth: 420,
+    maxHeight: '90%',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 24,
+    elevation: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
   },
-  receiptTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 0.4, marginBottom: 6 },
-  receiptMeta: { fontSize: 13, marginTop: 4, opacity: 0.85, fontWeight: '600' },
-  receiptDivider: { 
-    width: 60, 
-    height: 3, 
-    borderRadius: 2, 
-    marginTop: 12,
-    opacity: 0.8,
+  receiptHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  receiptTableContainer: {
-    borderWidth: 2,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 4,
+  receiptStoreName: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#2c3e50',
+    letterSpacing: 2,
+    marginTop: 8,
+    marginBottom: 12,
   },
-  receiptBody: { 
-    maxHeight: 480, 
-    backgroundColor: '#fff',
+  receiptDashedLine: {
+    width: '100%',
+    height: 1,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: '#9ca3af',
+    marginVertical: 12,
   },
-  receiptColumnsHeader: { 
-    flexDirection: 'row', 
-    paddingHorizontal: 16, 
-    paddingVertical: 14,
+  receiptDottedLine: {
+    width: '100%',
+    height: 1,
+    borderStyle: 'dotted',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    marginVertical: 8,
   },
-  receiptRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 14, 
-    paddingHorizontal: 16,
-    minHeight: 52,
+  receiptDoubleLine: {
+    width: '100%',
+    height: 3,
+    backgroundColor: '#2c3e50',
+    marginVertical: 8,
   },
-  receiptRowAlt: { backgroundColor: '#f9fafb' },
-  colName: { flex: 2, fontSize: 15, fontWeight: '600', letterSpacing: 0.1 },
-  colQty: { width: 60, textAlign: 'center', fontWeight: '700', fontSize: 15 },
-  colPrice: { width: 90, textAlign: 'right', fontWeight: '600', fontSize: 15 },
-  colTotal: { width: 100, textAlign: 'right', fontWeight: '800', fontSize: 16 },
-  receiptFooter: { 
-    paddingHorizontal: 0, 
-    paddingVertical: 0, 
-    marginTop: 4,
+  receiptInfoSection: {
+    marginBottom: 12,
   },
-  receiptFooterLabel: { fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
-  receiptFooterValue: { fontSize: 15, fontWeight: '700' },
-  receiptTotalContainer: {
+  receiptInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    paddingVertical: 4,
   },
-  receiptTotalRow: {
+  receiptLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  receiptValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2c3e50',
+  },
+  receiptItemsScroll: {
+    maxHeight: 300,
+  },
+  receiptItemRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+  },
+  receiptItemNameQty: {
+    flex: 1,
+    marginRight: 12,
+  },
+  receiptItemName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2c3e50',
+    marginBottom: 2,
+  },
+  receiptItemQtyPrice: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  receiptItemTotal: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2c3e50',
+    minWidth: 80,
+    textAlign: 'right',
+  },
+  receiptTotalSection: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  receiptSubtotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  receiptSubtotalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  receiptSubtotalValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2c3e50',
+  },
+  receiptGrandTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  receiptGrandTotalLabel: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#2c3e50',
+    letterSpacing: 1,
+  },
+  receiptGrandTotalValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#2c3e50',
+    letterSpacing: 0.5,
+  },
+  receiptFooterMsg: {
     alignItems: 'center',
-    gap: 10,
+    marginTop: 12,
+    marginBottom: 20,
   },
-  receiptTotalIcon: {
-    fontSize: 24,
+  receiptThankYou: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#2c3e50',
+    marginBottom: 4,
   },
-  receiptTotalLabel: { fontSize: 20, fontWeight: '900', letterSpacing: 0.3, color: '#fff' },
-  receiptTotalValue: { fontSize: 24, fontWeight: '900', letterSpacing: 0.2, color: '#fff' },
+  receiptFooterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9ca3af',
+  },
   
   // Receipt action buttons
   receiptActions: {
     flexDirection: 'row',
-    marginTop: 20,
-    gap: 12,
+    gap: 8,
   },
   receiptActionBtn: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    elevation: 4,
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   receiptActionBtnText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: '#fff',
     letterSpacing: 0.3,
   },
-  receiptShareBtn: {},
-  receiptDeleteBtn: {},
-  receiptCloseBtn: {},
 });
 
