@@ -48,7 +48,13 @@
       "invalidReturn": "Please enter a valid quantity to return",
       "returnFailed": "Failed to return items",
       "invalidPrice": "Please enter a valid price",
-      "saveFailed": "Failed to save price"
+      "saveFailed": "Failed to save price",
+      "invalidQty": "Invalid Quantity",
+      "qtyMustBePositive": "Quantity must be greater than 0",
+      "qtyExceedsMax": "Quantity cannot exceed {{max}}",
+      "priceMustBePositive": "Price must be 0 or greater",
+      "transferFailed": "Transfer Failed",
+      "unknownItem": "Unknown item"
     },
     "placeholder": {
       "qty": "Quantity",
@@ -56,10 +62,13 @@
       "unitPrice": "Unit price"
     },
     "transfer": {
-      "title": "Transfer Item"
+      "title": "Transfer Item",
+      "maxAvailable": "Max: {{max}}"
     },
     "chinaStock": "China Stock",
     "brazilStock": "Brazil Stock",
+    "unitPrice": "Unit Price",
+    "totalValue": "Total Value",
     "footer": {
       "items": "Items: {{count}}",
       "pcs": "Items: {{count}}"
@@ -84,7 +93,12 @@
     "empty": "No articles yet. Tap + to add.",
     "total": "Total Quantity",
     "editTitle": "Edit Article",
-    "save": "Save"
+    "save": "Save",
+    "importing": "Importing items...",
+    "confirmDelete": {
+      "title": "Delete Item?",
+      "message": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
+    }
   },
   "client": {
     "newClient": "New Client",

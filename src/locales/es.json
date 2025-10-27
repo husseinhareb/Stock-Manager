@@ -47,7 +47,13 @@
       "invalidReturn": "Por favor ingresa una cantidad válida para devolver",
       "returnFailed": "No se pudieron devolver los artículos",
       "invalidPrice": "Por favor ingresa un precio válido",
-      "saveFailed": "No se pudo guardar el precio"
+      "saveFailed": "No se pudo guardar el precio",
+      "invalidQty": "Cantidad inválida",
+      "qtyMustBePositive": "La cantidad debe ser mayor que 0",
+      "qtyExceedsMax": "La cantidad no puede exceder {{max}}",
+      "priceMustBePositive": "El precio debe ser 0 o mayor",
+      "transferFailed": "Transferencia fallida",
+      "unknownItem": "Artículo desconocido"
     },
     "placeholder": {
       "qty": "Cant",
@@ -55,10 +61,13 @@
       "unitPrice": "Precio unitario"
     },
     "transfer": {
-      "title": "Transferir artículo"
+      "title": "Transferir artículo",
+      "maxAvailable": "Máx: {{max}}"
     },
     "chinaStock": "Stock de China",
     "brazilStock": "Stock de Brasil",
+    "unitPrice": "Precio Unitario",
+    "totalValue": "Valor Total",
     "footer": {
       "items": "Piezas: {{count}}",
       "pcs": "Piezas: {{count}}"
@@ -83,7 +92,12 @@
     "empty": "No hay artículos aún. Toca + para agregar.",
     "total": "Cantidad total",
     "editTitle": "Editar artículo",
-    "save": "Guardar"
+    "save": "Guardar",
+    "importing": "Importando artículos...",
+    "confirmDelete": {
+      "title": "¿Eliminar artículo?",
+      "message": "¿Estás seguro de que quieres eliminar \"{{name}}\"? Esta acción no se puede deshacer."
+    }
   },
   "client": {
     "newClient": "Nuevo cliente",

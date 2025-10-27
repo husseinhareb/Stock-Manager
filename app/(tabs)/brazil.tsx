@@ -168,20 +168,26 @@ export default function BrazilStockScreen() {
 				<View style={[styles.badge, { backgroundColor: theme.accent }]}>
 					<Text style={styles.badgeText}>{item.quantity}</Text>
 				</View>
-				<Text
-					style={[styles.cellAmount, { color: theme.text }]}
-					numberOfLines={1}
-					allowFontScaling={false}
-				>
-					{`${currencySymbol}${unit.toFixed(2)}`}
-				</Text>
-				<Text
-					style={[styles.cellAmount, { color: theme.text }]}
-					numberOfLines={1}
-					allowFontScaling={false}
-				>
-					{`${currencySymbol}${total}`}
-				</Text>
+				<View style={styles.priceColumn}>
+					<Text style={[styles.priceLabel, { color: theme.placeholder }]}>{t('brazil.unitPrice')}</Text>
+					<Text
+						style={[styles.priceValue, { color: theme.text }]}
+						numberOfLines={1}
+						allowFontScaling={false}
+					>
+						{`${currencySymbol}${unit.toFixed(2)}`}
+					</Text>
+				</View>
+				<View style={styles.priceColumn}>
+					<Text style={[styles.priceLabel, { color: theme.placeholder }]}>{t('brazil.totalValue')}</Text>
+					<Text
+						style={[styles.priceValue, { color: theme.text }]}
+						numberOfLines={1}
+						allowFontScaling={false}
+					>
+						{`${currencySymbol}${total}`}
+					</Text>
+				</View>
 			</Pressable>
 		);
 	};
@@ -210,6 +216,7 @@ export default function BrazilStockScreen() {
 	const [transferModalVisible, setTransferModalVisible] = useState(false);
 	const [transferQty, setTransferQty] = useState('');
 	const [transferPrice, setTransferPrice] = useState('');
+	const [qtyWarning, setQtyWarning] = useState('');
 	const transferSourceRef = useRef<Article | null>(null);
 
 	// Root container offset (to align window coords with overlay coords)
@@ -487,6 +494,24 @@ export default function BrazilStockScreen() {
 		}
 	};
 
+	// Live validation as user types
+	const handleQtyChange = (text: string) => {
+		setTransferQty(text);
+		
+		const qty = parseInt(text || '0', 10);
+		const maxQty = transferSourceRef.current?.quantity || 0;
+		
+		if (text === '') {
+			setQtyWarning('');
+		} else if (isNaN(qty) || qty <= 0) {
+			setQtyWarning(t('brazil.alert.qtyMustBePositive'));
+		} else if (qty > maxQty) {
+			setQtyWarning(t('brazil.alert.qtyExceedsMax', { max: maxQty }));
+		} else {
+			setQtyWarning('');
+		}
+	};
+
 	const validateAndPerformTransfer = async () => {
 		const src = transferSourceRef.current;
 		if (!src) {
@@ -496,8 +521,20 @@ export default function BrazilStockScreen() {
 		}
 		const qty = parseInt(transferQty || '0', 10);
 		const price = parseFloat(transferPrice || '0');
-		if (!qty || qty <= 0 || qty > src.quantity) return Alert.alert(t('brazil.alert.invalidQty'));
-		if (isNaN(price) || price < 0) return Alert.alert(t('brazil.alert.invalidPrice'));
+		
+		// Validate quantity
+		if (isNaN(qty) || qty <= 0) {
+			return Alert.alert(t('brazil.alert.invalidQty'), t('brazil.alert.qtyMustBePositive'));
+		}
+		if (qty > src.quantity) {
+			return Alert.alert(t('brazil.alert.invalidQty'), t('brazil.alert.qtyExceedsMax', { max: src.quantity }));
+		}
+		
+		// Validate price
+		if (isNaN(price) || price < 0) {
+			return Alert.alert(t('brazil.alert.invalidPrice'), t('brazil.alert.priceMustBePositive'));
+		}
+		
 		try {
 			if (dragOrigin === 'main') {
 				await moveToSecondary(src.id, qty);
@@ -510,6 +547,7 @@ export default function BrazilStockScreen() {
 			transferSourceRef.current = null;
 			transferOriginRef.current = null;
 			setDragOrigin(null);
+			setQtyWarning('');
 			await loadData();
 		} catch (e: any) {
 			Alert.alert(t('brazil.alert.transferFailed'), e.message);
@@ -681,6 +719,19 @@ export default function BrazilStockScreen() {
 								<View style={[styles.modalDivider, { backgroundColor: theme.primary }]} />
 							</View>
 
+							{/* Item name and max quantity display */}
+							{transferSourceRef.current && (
+								<View style={styles.modalItemInfo}>
+									<Text style={[styles.modalItemName, { color: theme.text }]}>{transferSourceRef.current.name}</Text>
+									<View style={[styles.maxQtyBadge, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
+										<FontAwesome name="archive" size={12} color={theme.accent} style={{ marginRight: 4 }} />
+										<Text style={[styles.maxQtyText, { color: theme.accent }]}>
+											{t('brazil.transfer.maxAvailable', { max: transferSourceRef.current.quantity })}
+										</Text>
+									</View>
+								</View>
+							)}
+
 							{/* Enhanced input fields */}
 							<View style={styles.modalInputContainer}>
 								<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
@@ -688,13 +739,26 @@ export default function BrazilStockScreen() {
 									<Text style={[styles.inputLabel, { color: theme.text, marginBottom: 0 }]}>{t('brazil.placeholder.qty')}</Text>
 								</View>
 								<TextInput
-									style={[styles.modalInput, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '05', color: theme.text }]}
+									style={[
+										styles.modalInput, 
+										{ 
+											borderColor: qtyWarning ? '#e74c3c' : theme.primary + '30', 
+											backgroundColor: qtyWarning ? '#e74c3c15' : theme.primary + '05', 
+											color: theme.text 
+										}
+									]}
 									placeholder={t('brazil.placeholder.qty')}
 									placeholderTextColor={theme.placeholder}
 									keyboardType="number-pad"
 									value={transferQty}
-									onChangeText={setTransferQty}
+									onChangeText={handleQtyChange}
 								/>
+								{qtyWarning !== '' && (
+									<View style={styles.warningContainer}>
+										<FontAwesome name="exclamation-triangle" size={12} color="#e74c3c" style={{ marginRight: 6 }} />
+										<Text style={styles.warningText}>{qtyWarning}</Text>
+									</View>
+								)}
 							</View>
 
 							<View style={styles.modalInputContainer}>
@@ -715,7 +779,14 @@ export default function BrazilStockScreen() {
 							{/* Enhanced action buttons */}
 							<View style={styles.modalActions}>
 								<Pressable
-									onPress={() => { setTransferModalVisible(false); transferSourceRef.current = null; transferOriginRef.current = null; setDragOrigin(null); setHighlightTarget(null); }}
+									onPress={() => { 
+										setTransferModalVisible(false); 
+										transferSourceRef.current = null; 
+										transferOriginRef.current = null; 
+										setDragOrigin(null); 
+										setHighlightTarget(null); 
+										setQtyWarning(''); 
+									}}
 									style={({ pressed }) => [
 										styles.modalBtn,
 										styles.modalCancelBtn,
@@ -956,6 +1027,24 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		flexShrink: 0,
 	},
+	priceColumn: {
+		minWidth: 88,
+		alignItems: 'center',
+		marginLeft: 8,
+	},
+	priceLabel: {
+		fontSize: 10,
+		fontWeight: '600',
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
+		marginBottom: 2,
+		opacity: 0.7,
+	},
+	priceValue: {
+		fontSize: 14,
+		fontWeight: '700',
+		letterSpacing: 0.2,
+	},
 	modalActions: {
 		flexDirection: 'row',
 		justifyContent: 'flex-end',
@@ -969,11 +1058,6 @@ const styles = StyleSheet.create({
 		borderRadius: 12,
 		minWidth: 100,
 		alignItems: 'center',
-		elevation: 3,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 3 },
-		shadowOpacity: 0.12,
-		shadowRadius: 6,
 	},
 	modalHeader: {
 		alignItems: 'center',
@@ -997,6 +1081,29 @@ const styles = StyleSheet.create({
 		marginTop: 12,
 		opacity: 0.8,
 	},
+	modalItemInfo: {
+		marginBottom: 20,
+		alignItems: 'center',
+	},
+	modalItemName: {
+		fontSize: 16,
+		fontWeight: '700',
+		marginBottom: 10,
+		textAlign: 'center',
+	},
+	maxQtyBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 8,
+		paddingHorizontal: 12,
+		borderRadius: 20,
+		borderWidth: 1.5,
+	},
+	maxQtyText: {
+		fontSize: 13,
+		fontWeight: '700',
+		letterSpacing: 0.3,
+	},
 	modalInputContainer: {
 		marginBottom: 18,
 	},
@@ -1007,11 +1114,34 @@ const styles = StyleSheet.create({
 		letterSpacing: 0.2,
 		opacity: 0.9,
 	},
+	warningContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginTop: 8,
+		paddingHorizontal: 12,
+		paddingVertical: 8,
+		backgroundColor: '#e74c3c15',
+		borderRadius: 8,
+		borderLeftWidth: 3,
+		borderLeftColor: '#e74c3c',
+	},
+	warningText: {
+		fontSize: 12,
+		color: '#e74c3c',
+		fontWeight: '600',
+		flex: 1,
+	},
 	modalBtnText: {
 		fontSize: 14,
 		fontWeight: '700',
 		letterSpacing: 0.3,
 	},
 	modalCancelBtn: {},
-	modalSaveBtn: {},
+	modalSaveBtn: {
+		elevation: 3,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.15,
+		shadowRadius: 4,
+	},
 });

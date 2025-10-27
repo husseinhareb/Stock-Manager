@@ -48,7 +48,13 @@
             "invalidReturn": "الرجاء إدخال كمية صالحة للإرجاع",
             "returnFailed": "فشل في إرجاع العناصر",
             "invalidPrice": "الرجاء إدخال سعر صالح",
-            "saveFailed": "فشل في حفظ السعر"
+            "saveFailed": "فشل في حفظ السعر",
+            "invalidQty": "كمية غير صالحة",
+            "qtyMustBePositive": "يجب أن تكون الكمية أكبر من 0",
+            "qtyExceedsMax": "لا يمكن أن تتجاوز الكمية {{max}}",
+            "priceMustBePositive": "يجب أن يكون السعر 0 أو أكثر",
+            "transferFailed": "فشل النقل",
+            "unknownItem": "عنصر غير معروف"
         },
         "placeholder": {
             "qty": "الكمية",
@@ -56,10 +62,13 @@
             "unitPrice": "سعر الوحدة"
         },
         "transfer": {
-            "title": "نقل الصنف"
+            "title": "نقل الصنف",
+            "maxAvailable": "الحد الأقصى: {{max}}"
         },
         "chinaStock": "مخزون الصين",
         "brazilStock": "مخزون البرازيل",
+        "unitPrice": "سعر الوحدة",
+        "totalValue": "القيمة الإجمالية",
         "footer": {
             "items": "القطع: {{count}}",
             "pcs": "القطع: {{count}}"
@@ -78,13 +87,18 @@
     },
     "china": {
         "placeholder": {
-            "name": "اسم الصنف",
+            "name": "اسم المقال",
             "quantity": "الكمية"
         },
-        "empty": "لا توجد أصناف بعد. انقر + للإضافة.",
-        "total": "إجمالي الكمية",
-        "editTitle": "تعديل الصنف",
-        "save": "حفظ"
+        "empty": "لا توجد مقالات بعد. اضغط + للإضافة.",
+        "total": "الكمية الإجمالية",
+        "editTitle": "تحرير المقال",
+        "save": "حفظ",
+        "importing": "جارٍ الاستيراد...",
+        "confirmDelete": {
+            "title": "حذف العنصر؟",
+            "message": "هل أنت متأكد من حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء."
+        }
     },
     "client": {
         "newClient": "عميل جديد",

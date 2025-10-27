@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
@@ -48,6 +49,7 @@ export default function ChinaStockScreen() {
   const [editName, setEditName] = useState('');
   const [editQuantity, setEditQuantity] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     initDB().catch(console.warn);
@@ -157,10 +159,13 @@ export default function ChinaStockScreen() {
         return;
       }
 
-      // Insert sequentially to preserve write lock semantics
-      for (const row of toInsert) {
+      // Insert sequentially to preserve write lock semantics with progress tracking
+      setImportProgress({ current: 0, total: toInsert.length });
+      for (let i = 0; i < toInsert.length; i++) {
+        const row = toInsert[i];
         try {
           await addArticle(row.name, row.quantity);
+          setImportProgress({ current: i + 1, total: toInsert.length });
         } catch (e) {
           // continue on individual failure, but log
           console.warn('Failed to insert row', row, e);
@@ -176,6 +181,7 @@ export default function ChinaStockScreen() {
       Alert.alert(t('china.import.title', { defaultValue: 'Import' }), e.message || String(e));
     } finally {
       setIsImporting(false);
+      setImportProgress({ current: 0, total: 0 });
     }
   }, [loadData, t]);
 
@@ -195,6 +201,21 @@ export default function ChinaStockScreen() {
         loadData();
       })
       .catch(console.warn);
+  };
+
+  const confirmDelete = (item: Article) => {
+    Alert.alert(
+      t('china.confirmDelete.title'),
+      t('china.confirmDelete.message', { name: item.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { 
+          text: t('common.delete'), 
+          style: 'destructive',
+          onPress: () => handleDelete(item.id)
+        }
+      ]
+    );
   };
 
   const handleDelete = (id: number) => {
@@ -257,7 +278,7 @@ export default function ChinaStockScreen() {
           <TouchableOpacity onPress={() => startEdit(item)} style={styles.actionBtn}>
             <MaterialIcons name="edit" size={20} color={theme.icon} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
+          <TouchableOpacity onPress={() => confirmDelete(item)} style={styles.actionBtn}>
             <MaterialIcons name="delete" size={20} color={theme.icon} />
           </TouchableOpacity>
         </View>
@@ -359,6 +380,21 @@ export default function ChinaStockScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Loading Overlay */}
+      {isImporting && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={theme.accent} />
+            <Text style={styles.loadingText}>{t('china.importing')}</Text>
+            {importProgress.total > 0 && (
+              <Text style={styles.loadingProgress}>
+                {importProgress.current} / {importProgress.total}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
     </>
   );
 }
@@ -447,5 +483,41 @@ const styles = StyleSheet.create({
   modalInput: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 12, fontSize: 16, marginBottom: 12, backgroundColor: 'rgba(127,127,127,0.06)', fontWeight: '600' },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 },
   modalBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, marginLeft: 12 },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  loadingBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    minWidth: 200,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    letterSpacing: 0.2,
+  },
+  loadingProgress: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
 });
 

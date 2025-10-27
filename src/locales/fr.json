@@ -48,7 +48,13 @@
             "invalidReturn": "Veuillez entrer une quantité valide à retourner",
             "returnFailed": "Échec du retour des articles",
             "invalidPrice": "Veuillez entrer un prix valide",
-            "saveFailed": "Échec de l'enregistrement du prix"
+            "saveFailed": "Échec de l'enregistrement du prix",
+            "invalidQty": "Quantité invalide",
+            "qtyMustBePositive": "La quantité doit être supérieure à 0",
+            "qtyExceedsMax": "La quantité ne peut pas dépasser {{max}}",
+            "priceMustBePositive": "Le prix doit être 0 ou supérieur",
+            "transferFailed": "Échec du transfert",
+            "unknownItem": "Article inconnu"
         },
         "placeholder": {
             "qty": "Qté",
@@ -56,10 +62,13 @@
             "unitPrice": "Prix unitaire"
         },
         "transfer": {
-            "title": "Transférer l'article"
+            "title": "Transférer l'article",
+            "maxAvailable": "Max : {{max}}"
         },
         "chinaStock": "Stock de Chine",
         "brazilStock": "Stock du Brésil",
+        "unitPrice": "Prix Unitaire",
+        "totalValue": "Valeur Totale",
         "footer": {
             "items": "Pièces : {{count}}",
             "pcs": "Pièces : {{count}}"
@@ -81,10 +90,15 @@
             "name": "Nom de l'article",
             "quantity": "Quantité"
         },
-        "empty": "Aucun article pour le moment. Appuyez sur + pour en ajouter.",
+        "empty": "Aucun article pour le moment. Appuyez sur + pour ajouter.",
         "total": "Quantité totale",
         "editTitle": "Modifier l'article",
-        "save": "Enregistrer"
+        "save": "Enregistrer",
+        "importing": "Importation en cours...",
+        "confirmDelete": {
+            "title": "Supprimer l'article ?",
+            "message": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" ? Cette action ne peut pas être annulée."
+        }
     },
     "client": {
         "newClient": "Nouveau client",
