@@ -51,9 +51,12 @@
       "saveFailed": "Failed to save price"
     },
     "placeholder": {
-      "qty": "Qty",
+      "qty": "Quantity",
       "ret": "Ret",
       "unitPrice": "Unit price"
+    },
+    "transfer": {
+      "title": "Transfer Item"
     },
     "chinaStock": "China Stock",
     "brazilStock": "Brazil Stock",
@@ -96,7 +99,7 @@
     },
     "table": {
       "item": "Item",
-      "qty": "Qty",
+      "qty": "Quantity",
       "unitPrice": "Unit Price",
       "total": "Total",
       "grandTotal": "Grand Total"

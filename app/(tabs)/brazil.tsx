@@ -9,7 +9,6 @@ import {
 	Animated,
 	Easing,
 	FlatList,
-	Keyboard,
 	KeyboardAvoidingView,
 	Modal,
 	PanResponder,
@@ -18,7 +17,7 @@ import {
 	StyleSheet,
 	Text,
 	TextInput,
-	View,
+	View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -66,10 +65,6 @@ export default function BrazilStockScreen() {
 	const [brazilStock, setBrazilStock] = useState<Article[]>([]);
 	const [prices, setPrices] = useState<Price[]>([]);
 
-	// Inline quantities
-	const [moveQty, setMoveQty] = useState<Record<number, string>>({});
-	const [returnQty, setReturnQty] = useState<Record<number, string>>({});
-
 	// Modal
 	const [priceModalVisible, setPriceModalVisible] = useState(false);
 	const [priceModalArticle, setPriceModalArticle] = useState<Article | null>(null);
@@ -112,36 +107,6 @@ export default function BrazilStockScreen() {
 	// Helpers
 	const sanitizeInt = (txt: string) => txt.replace(/[^0-9]/g, '');
 
-	const onMove = async (item: Article) => {
-		const q = parseInt(moveQty[item.id] || '0', 10);
-		if (q <= 0) return Alert.alert(t('brazil.alert.invalidMove'));
-		try {
-			await moveToSecondary(item.id, q);
-			setMoveQty(prev => ({ ...prev, [item.id]: '' }));
-			setPriceModalArticle(item);
-			setPriceInput('');
-			setPriceModalVisible(true);
-			Keyboard.dismiss();
-			setFocusedKey(null);
-		} catch (e: any) {
-			Alert.alert(t('brazil.alert.moveFailed'), e.message);
-		}
-	};
-
-	const onReturn = async (item: Article) => {
-		const q = parseInt(returnQty[item.id] || '0', 10);
-		if (q <= 0) return Alert.alert(t('brazil.alert.invalidReturn'));
-		try {
-			await returnToMain(item.id, q);
-			setReturnQty(prev => ({ ...prev, [item.id]: '' }));
-			await loadData();
-			Keyboard.dismiss();
-			setFocusedKey(null);
-		} catch (e: any) {
-			Alert.alert(t('brazil.alert.returnFailed'), e.message);
-		}
-	};
-
 	const onSavePrice = async () => {
 		if (!priceModalArticle) return;
 		const p = parseFloat(priceInput);
@@ -156,7 +121,6 @@ export default function BrazilStockScreen() {
 	};
 
 	const renderMoveItem = ({ item }: { item: Article }) => {
-		const key = `move-${item.id}`;
 		return (
 			<Pressable
 				collapsable={false}
@@ -177,28 +141,6 @@ export default function BrazilStockScreen() {
 				<View style={[styles.badge, { backgroundColor: theme.accent }]}>
 					<Text style={styles.badgeText}>{item.quantity}</Text>
 				</View>
-				<TextInput
-					style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
-					placeholder={t('brazil.placeholder.qty')}
-					placeholderTextColor={theme.placeholder}
-					keyboardType="number-pad"
-					value={moveQty[item.id] ?? ''}
-					onChangeText={txt => setMoveQty(m => ({ ...m, [item.id]: sanitizeInt(txt) }))}
-					autoCapitalize="none"
-					autoCorrect={false}
-					textContentType="none"
-					importantForAutofill="no"
-					returnKeyType="done"
-					blurOnSubmit
-					onSubmitEditing={Keyboard.dismiss}
-					onFocus={() => setFocusedKey(key)}
-					onBlur={() => setFocusedKey(k => (k === key ? null : k))}
-					autoFocus={focusedKey === key}
-					{...(Platform.OS === 'android' ? { disableFullscreenUI: true } : {})}
-				/>
-				<Pressable onPress={() => onMove(item)} style={[styles.solidBtn, { backgroundColor: theme.primary }]}>
-					<FontAwesome name="arrow-right" size={16} color="#fff" />
-				</Pressable>
 			</Pressable>
 		);
 	};
@@ -206,7 +148,6 @@ export default function BrazilStockScreen() {
 	const renderViewItem = ({ item }: { item: Article }) => {
 		const unit = priceMap[item.id] || 0;
 		const total = (unit * item.quantity).toFixed(2);
-		const key = `ret-${item.id}`;
 		return (
 			<Pressable
 				collapsable={false}
@@ -227,9 +168,6 @@ export default function BrazilStockScreen() {
 				<View style={[styles.badge, { backgroundColor: theme.accent }]}>
 					<Text style={styles.badgeText}>{item.quantity}</Text>
 				</View>
-				<Text style={{ width: 60, textAlign: 'center', color: theme.text, fontSize: 16 }}>
-					{`${currencySymbol}${unit.toFixed(2)}`}
-				</Text>
 				<Text
 					style={[styles.cellAmount, { color: theme.text }]}
 					numberOfLines={1}
@@ -244,28 +182,6 @@ export default function BrazilStockScreen() {
 				>
 					{`${currencySymbol}${total}`}
 				</Text>
-				<TextInput
-					style={[styles.smallInput, { borderColor: theme.border, color: theme.text }]}
-					placeholder={t('brazil.placeholder.ret')}
-					placeholderTextColor={theme.placeholder}
-					keyboardType="number-pad"
-					value={returnQty[item.id] ?? ''}
-					onChangeText={txt => setReturnQty(m => ({ ...m, [item.id]: sanitizeInt(txt) }))}
-					autoCapitalize="none"
-					autoCorrect={false}
-					textContentType="none"
-					importantForAutofill="no"
-					returnKeyType="done"
-					blurOnSubmit
-					onSubmitEditing={Keyboard.dismiss}
-					onFocus={() => setFocusedKey(key)}
-					onBlur={() => setFocusedKey(k => (k === key ? null : k))}
-					autoFocus={focusedKey === key}
-					{...(Platform.OS === 'android' ? { disableFullscreenUI: true } : {})}
-				/>
-				<Pressable onPress={() => onReturn(item)} style={[styles.solidBtn, { backgroundColor: '#FF5F6D' }]}>
-					<FontAwesome name="arrow-left" size={16} color="#fff" />
-				</Pressable>
 			</Pressable>
 		);
 	};
@@ -643,7 +559,6 @@ export default function BrazilStockScreen() {
 						initialNumToRender={12}
 						maxToRenderPerBatch={12}
 						updateCellsBatchingPeriod={50}
-						extraData={{ moveQty, focusedKey }}
 					/>
 					<View style={[styles.footerBar, { borderTopColor: theme.border }]}>
 						<FontAwesome name="cubes" size={18} color={theme.accent} />
@@ -679,7 +594,7 @@ export default function BrazilStockScreen() {
 						initialNumToRender={12}
 						maxToRenderPerBatch={12}
 						updateCellsBatchingPeriod={50}
-						extraData={{ returnQty, focusedKey, priceMap }}
+						extraData={priceMap}
 					/>
 					<View style={[styles.footerBar, { borderTopColor: theme.border }]}>
 						<FontAwesome name="cubes" size={18} color={theme.accent} />
@@ -713,12 +628,13 @@ export default function BrazilStockScreen() {
 								}}
 							>
 								<View style={[
-									styles.card,
 									{
+										flexDirection: 'row',
+										alignItems: 'center',
 										width: previewSize.width,
 										height: previewSize.height,
-										paddingHorizontal: 12,
-										paddingVertical: 10,
+										paddingHorizontal: 14,
+										paddingVertical: 12,
 										borderRadius: 14,
 										backgroundColor: theme.card,
 										borderWidth: 2,
@@ -728,15 +644,23 @@ export default function BrazilStockScreen() {
 										shadowOpacity: 0.3,
 										shadowRadius: 16,
 										elevation: 12,
-										overflow: 'hidden'
 									}
 								]}>
-									<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
-									<Text style={[styles.cardText, { color: theme.text, maxWidth: 160, fontWeight: '800' }]} numberOfLines={1}>
+									<FontAwesome name="archive" size={20} color={theme.accent} style={{ marginRight: 10 }} />
+									<Text style={[{ flex: 1, fontSize: 16, fontWeight: '700', letterSpacing: 0.2, color: theme.text }]} numberOfLines={1}>
 										{draggingItem.name}
 									</Text>
-									<View style={[styles.badge, { backgroundColor: theme.accent, marginLeft: 8 }]}>
-										<Text style={styles.badgeText}>{draggingItem.quantity}</Text>
+									<View style={[{
+										paddingVertical: 6,
+										paddingHorizontal: 10,
+										borderRadius: 999,
+										minWidth: 34,
+										alignItems: 'center',
+										justifyContent: 'center',
+										marginRight: 8,
+										backgroundColor: theme.accent,
+									}]}>
+										<Text style={{ color: '#fff', fontWeight: '800', fontSize: 14, letterSpacing: 0.2 }}>{draggingItem.quantity}</Text>
 									</View>
 								</View>
 							</Animated.View>
@@ -1003,12 +927,11 @@ const styles = StyleSheet.create({
 		maxWidth: 420,
 		borderRadius: 20,
 		padding: 24,
-		elevation: 12,
+		elevation: 8,
 		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 16 },
-		shadowOpacity: 0.2,
-		shadowRadius: 28,
-		borderWidth: StyleSheet.hairlineWidth,
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.15,
+		shadowRadius: 12,
 	},
 	modalTitle: {
 		fontSize: 20,
@@ -1066,11 +989,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginBottom: 12,
-		elevation: 4,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 4 },
-		shadowOpacity: 0.15,
-		shadowRadius: 8,
 	},
 	modalDivider: {
 		width: 60,

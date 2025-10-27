@@ -55,6 +55,9 @@
             "ret": "Ret",
             "unitPrice": "Prix unitaire"
         },
+        "transfer": {
+            "title": "Transférer l'article"
+        },
         "chinaStock": "Stock de Chine",
         "brazilStock": "Stock du Brésil",
         "footer": {

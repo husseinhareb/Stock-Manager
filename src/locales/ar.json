@@ -55,6 +55,9 @@
             "ret": "إرجاع",
             "unitPrice": "سعر الوحدة"
         },
+        "transfer": {
+            "title": "نقل الصنف"
+        },
         "chinaStock": "مخزون الصين",
         "brazilStock": "مخزون البرازيل",
         "footer": {
