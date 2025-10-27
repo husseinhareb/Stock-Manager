@@ -316,56 +316,38 @@ export default function BrazilStockScreen() {
 			// Success haptic feedback
 			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-			const origin = transferOriginRef.current;
-			let tgt = null;
-			if (origin === 'main') tgt = brazilLayoutRef.current;
-			else if (origin === 'brazil') tgt = mainLayout.current;
-			if (tgt) {
-				// convert target (window) -> overlay coords and center preview in the target area
-				const { x: cx, y: cy } = rootOffsetRef.current;
-				const targetX = (tgt.x - cx) + tgt.width / 2 - previewSize.width / 2;
-				const targetY = (tgt.y - cy) + tgt.height / 2 - previewSize.height / 2;
-
-				// Smooth snap animation with spring-like effect
-				Animated.parallel([
-					Animated.spring(dragPos, {
-						toValue: { x: targetX, y: targetY },
-						friction: 8,
-						tension: 40,
-						useNativeDriver: false
-					}),
-					Animated.timing(dragScale, {
-						toValue: 0.85,
-						duration: 200,
-						easing: Easing.out(Easing.back(1.5)),
-						useNativeDriver: false
-					}),
-					Animated.timing(dragRotation, {
-						toValue: 0,
-						duration: 200,
-						easing: Easing.out(Easing.ease),
-						useNativeDriver: false,
-					}),
-					Animated.timing(dragOpacity, {
-						toValue: 0.8,
-						duration: 200,
-						useNativeDriver: false
-					}),
-				]).start(() => {
-					// open modal after the snap animation
-					setDraggingItem(null);
-					setHighlightTarget(null);
-					setTransferQty('');
-					setTransferPrice('');
-					setTransferModalVisible(true);
-					// reset values
-					dragScale.setValue(1);
-					dragOpacity.setValue(1);
-					dragRotation.setValue(0);
-					dragPos.setValue({ x: 0, y: 0 });
-				});
-				return;
-			}
+			// Quick fade out animation - no snap needed, just dissolve
+			Animated.parallel([
+				Animated.timing(dragOpacity, {
+					toValue: 0,
+					duration: 120,
+					easing: Easing.out(Easing.ease),
+					useNativeDriver: false
+				}),
+				Animated.timing(dragScale, {
+					toValue: 0.9,
+					duration: 120,
+					easing: Easing.out(Easing.ease),
+					useNativeDriver: false
+				}),
+			]).start(() => {
+				// Clean up and open modal immediately after fade
+				setDraggingItem(null);
+				setHighlightTarget(null);
+				setTransferQty('');
+				setTransferPrice('');
+				// reset values
+				dragScale.setValue(1);
+				dragOpacity.setValue(1);
+				dragRotation.setValue(0);
+				dragPos.setValue({ x: 0, y: 0 });
+			});
+			
+			// Open modal almost immediately (slight delay for smooth transition)
+			setTimeout(() => {
+				setTransferModalVisible(true);
+			}, 100);
+			return;
 		}
 
 		// Cancelled - warning haptic
