@@ -95,6 +95,8 @@
         "editTitle": "Modifier l'article",
         "save": "Enregistrer",
         "importing": "Importation en cours...",
+        "searchPlaceholder": "Rechercher des articles...",
+        "noResults": "Aucun résultat",
         "confirmDelete": {
             "title": "Supprimer l'article ?",
             "message": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" ? Cette action ne peut pas être annulée."
@@ -102,31 +104,16 @@
     },
     "client": {
         "newClient": "Nouveau client",
-        "empty": "Aucun client pour le moment. Appuyez sur + pour en ajouter un nouveau.",
-        "newClientName": "Saisir le nom du client",
-        "receiptTitle": "Reçu de {{name}}",
-        "sharePDF": "Partager le PDF",
+        "empty": "Aucun client pour le moment. Appuyez sur + pour en ajouter un.",
+        "newClientName": "Entrer le nom du client",
+        "receiptTitle": "Reçu pour {{name}}",
+        "sharePDF": "Partager PDF",
         "total": "Total : ${{total}}",
+        "searchPlaceholder": "Rechercher des clients ou des articles...",
+        "noResults": "Aucun résultat trouvé",
         "available": "Disponible : {{count}}",
         "placeholder": {
-            "name": "Saisir le nom du client"
-        },
-        "table": {
-            "item": "Article",
-            "qty": "Qté",
-            "unitPrice": "Prix unitaire",
-            "total": "Total",
-            "grandTotal": "Total général"
-        },
-        "alert": {
-            "confirmDeleteTitle": "Supprimer le client ?",
-            "confirmDeleteMessage": "Ceci supprimera définitivement ce client et son reçu. Continuer ?",
-            "loadFailed": "Échec du chargement des données",
-            "enterName": "Veuillez saisir un nom de client",
-            "selectItem": "Veuillez sélectionner au moins un article",
-            "error": "Une erreur est survenue",
-            "detailLoadFailed": "Échec du chargement des détails du client",
-            "shareFailed": "Échec du partage du reçu"
+            "name": "Entrer le nom du client"
         }
     },
     "common": {

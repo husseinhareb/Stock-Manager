@@ -95,6 +95,8 @@
         "editTitle": "تحرير المقال",
         "save": "حفظ",
         "importing": "جارٍ الاستيراد...",
+        "searchPlaceholder": "ابحث عن المقالات...",
+        "noResults": "لا توجد نتائج",
         "confirmDelete": {
             "title": "حذف العنصر؟",
             "message": "هل أنت متأكد من حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء."
@@ -102,11 +104,13 @@
     },
     "client": {
         "newClient": "عميل جديد",
-        "empty": "لا يوجد عملاء بعد. انقر + لإضافة عميل جديد.",
+        "empty": "لا يوجد عملاء بعد. اضغط + لإضافة عميل جديد.",
         "newClientName": "أدخل اسم العميل",
-        "receiptTitle": "إيصال {{name}}",
+        "receiptTitle": "إيصال لـ {{name}}",
         "sharePDF": "مشاركة PDF",
-        "total": "الإجمالي: ${{total}}",
+        "total": "المجموع: ${{total}}",
+        "searchPlaceholder": "ابحث عن العملاء أو العناصر...",
+        "noResults": "لم يتم العثور على نتائج",
         "available": "المتاح: {{count}}",
         "placeholder": {
             "name": "أدخل اسم العميل"

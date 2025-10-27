@@ -27,6 +27,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -92,6 +93,8 @@ export default function ClientScreen() {
   const [isBuilding, setIsBuilding] = useState(false);
   const [clientModalVisible, setClientModalVisible] = useState(false);
   const [detailModal, setDetailModal] = useState<SavedClientDetail | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Handle Android hardware back button when building to cancel
   useEffect(() => {
@@ -125,6 +128,12 @@ export default function ClientScreen() {
   useEffect(() => { loadData(); }, [loadData]);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData().catch(console.warn);
+    setRefreshing(false);
+  }, [loadData]);
+
   const priceMap = useMemo(() => {
     const map: Record<number, number> = {};
     prices.forEach((p) => { map[p.article_id] = p.price; });
@@ -147,6 +156,19 @@ export default function ClientScreen() {
   const totalUnits = useMemo(() => currentItems.reduce((sum, it) => sum + it.quantity, 0), [currentItems]);
 
   const distinctItems = currentItems.length;
+
+  // Filtered lists for search
+  const filteredBrazilStock = useMemo(() => {
+    if (!searchQuery.trim()) return brazilStock;
+    const query = searchQuery.toLowerCase();
+    return brazilStock.filter(a => a.name.toLowerCase().includes(query));
+  }, [brazilStock, searchQuery]);
+
+  const filteredSavedClients = useMemo(() => {
+    if (!searchQuery.trim()) return savedClients;
+    const query = searchQuery.toLowerCase();
+    return savedClients.filter(c => c.client.toLowerCase().includes(query));
+  }, [savedClients, searchQuery]);
 
   const saveClient = async () => {
     if (!clientName.trim()) return Alert.alert(t('client.alert.enterName'));
@@ -305,11 +327,33 @@ export default function ClientScreen() {
                 {clientName || t('client.newClient')}
               </Text>
             </View>
+
+            {/* Search Bar */}
+            <View style={[styles.searchContainer, { backgroundColor: theme.background }]}>
+              <View style={[styles.searchWrapper, { borderColor: theme.border, backgroundColor: theme.card }]}>
+                <MaterialIcons name="search" size={20} color={theme.icon} style={styles.searchIcon} />
+                <TextInput
+                  style={[styles.searchInput, { color: theme.text }]}
+                  placeholder={t('client.searchPlaceholder')}
+                  placeholderTextColor={theme.placeholder}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                    <MaterialIcons name="close" size={18} color={theme.icon} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
             <ScrollView
               style={styles.itemList}
               contentContainerStyle={{ paddingBottom: 96 }}
             >
-              {brazilStock.map((a) => {
+              {filteredBrazilStock.map((a) => {
                 const raw = selection[a.id];
                 const selected = raw !== undefined;
                 return (
@@ -407,16 +451,48 @@ export default function ClientScreen() {
             </View>
           </>
         ) : (
-          <FlatList
-            data={savedClients}
-            keyExtractor={(i) => i.id.toString()}
-            ListEmptyComponent={() => (
-              <View style={styles.emptyContainer}>
-                <FontAwesome name="inbox" size={48} color={theme.placeholder} />
-                <Text style={[styles.emptyText, { color: theme.placeholder }]}>{t('client.empty')}</Text>
+          <>
+            {/* Search Bar */}
+            <View style={[styles.searchContainer, { backgroundColor: theme.background }]}>
+              <View style={[styles.searchWrapper, { borderColor: theme.border, backgroundColor: theme.card }]}>
+                <MaterialIcons name="search" size={20} color={theme.icon} style={styles.searchIcon} />
+                <TextInput
+                  style={[styles.searchInput, { color: theme.text }]}
+                  placeholder={t('client.searchPlaceholder')}
+                  placeholderTextColor={theme.placeholder}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                    <MaterialIcons name="close" size={18} color={theme.icon} />
+                  </TouchableOpacity>
+                )}
               </View>
-            )}
-            renderItem={({ item }) => (
+            </View>
+
+            <FlatList
+              data={filteredSavedClients}
+              keyExtractor={(i) => i.id.toString()}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={[theme.accent]}
+                  tintColor={theme.accent}
+                />
+              }
+              ListEmptyComponent={() => (
+                <View style={styles.emptyContainer}>
+                  <FontAwesome name="inbox" size={48} color={theme.placeholder} />
+                  <Text style={[styles.emptyText, { color: theme.placeholder }]}>
+                    {searchQuery ? t('client.noResults') : t('client.empty')}
+                  </Text>
+                </View>
+              )}
+              renderItem={({ item }) => (
               <Pressable
                 style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}
                 onPress={() => openDetail(item)}
@@ -431,6 +507,7 @@ export default function ClientScreen() {
               </Pressable>
             )}
           />
+          </>
         )}
 
         {/* Name Modal */}
@@ -689,6 +766,39 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   itemList: { flex: 1, marginTop: 8 },
+
+  // Search
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  searchIcon: {
+    marginRight: 8,
+    opacity: 0.7,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    height: 40,
+  },
+  clearBtn: {
+    padding: 4,
+    borderRadius: 12,
+  },
 
   // Footer (pinned)
   builderFooter: {

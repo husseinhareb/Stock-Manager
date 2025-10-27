@@ -95,6 +95,8 @@
     "editTitle": "Edit Article",
     "save": "Save",
     "importing": "Importing items...",
+    "searchPlaceholder": "Search articles...",
+    "noResults": "No items match your search",
     "confirmDelete": {
       "title": "Delete Item?",
       "message": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
@@ -108,6 +110,8 @@
     "sharePDF": "Share PDF",
     "total": "Total: ${{total}}",
     "available": "Available: {{count}}",
+    "searchPlaceholder": "Search clients or items...",
+    "noResults": "No results found",
     "placeholder": {
       "name": "Enter client name"
     },

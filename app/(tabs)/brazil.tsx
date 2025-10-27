@@ -14,6 +14,7 @@ import {
 	PanResponder,
 	Platform,
 	Pressable,
+	RefreshControl,
 	StyleSheet,
 	Text,
 	TextInput,
@@ -90,6 +91,12 @@ export default function BrazilStockScreen() {
 
 	useEffect(() => { loadData(); }, [loadData]);
 	useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+
+	const onRefresh = useCallback(async () => {
+		setRefreshing(true);
+		await loadData().catch(console.warn);
+		setRefreshing(false);
+	}, [loadData]);
 
 	const priceMap = useMemo(() => {
 		const m: Record<number, number> = {};
@@ -217,6 +224,7 @@ export default function BrazilStockScreen() {
 	const [transferQty, setTransferQty] = useState('');
 	const [transferPrice, setTransferPrice] = useState('');
 	const [qtyWarning, setQtyWarning] = useState('');
+	const [refreshing, setRefreshing] = useState(false);
 	const transferSourceRef = useRef<Article | null>(null);
 
 	// Root container offset (to align window coords with overlay coords)
@@ -597,6 +605,14 @@ export default function BrazilStockScreen() {
 						initialNumToRender={12}
 						maxToRenderPerBatch={12}
 						updateCellsBatchingPeriod={50}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={onRefresh}
+								colors={[theme.accent]}
+								tintColor={theme.accent}
+							/>
+						}
 					/>
 					<View style={[styles.footerBar, { borderTopColor: theme.border }]}>
 						<FontAwesome name="cubes" size={18} color={theme.accent} />

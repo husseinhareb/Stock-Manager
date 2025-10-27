@@ -17,14 +17,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import XLSX from 'xlsx';
 
-import { Colors } from '@constants/Colors';
-import { useColorScheme } from '@hooks/useColorScheme';
 import {
   addArticle,
   Article,
@@ -35,6 +33,8 @@ import {
   reorderArticles,
   updateArticle,
 } from '@/src/db';
+import { Colors } from '@constants/Colors';
+import { useColorScheme } from '@hooks/useColorScheme';
 
 export default function ChinaStockScreen() {
   const scheme = useColorScheme();
@@ -50,6 +50,8 @@ export default function ChinaStockScreen() {
   const [editQuantity, setEditQuantity] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     initDB().catch(console.warn);
@@ -60,6 +62,12 @@ export default function ChinaStockScreen() {
     setArticles(list);
     setTotal(await fetchTotalQuantity());
   }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData().catch(console.warn);
+    setRefreshing(false);
+  }, [loadData]);
 
   useEffect(() => {
     loadData().catch(console.warn);
@@ -224,10 +232,18 @@ export default function ChinaStockScreen() {
       .catch(console.warn);
   };
 
-  const visibleArticles = useMemo(
-    () => articles.filter(a => a.quantity > 0),
-    [articles]
-  );
+  const visibleArticles = useMemo(() => {
+    let filtered = articles.filter(a => a.quantity > 0);
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(a => 
+        a.name.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [articles, searchQuery]);
 
   const commitReorder = useCallback(
     (newVisibleOrder: Article[]) => {
@@ -324,6 +340,27 @@ export default function ChinaStockScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Search Bar */}
+          <View style={[styles.searchContainer, { backgroundColor: theme.background }]}>
+            <View style={[styles.searchWrapper, { borderColor: theme.border, backgroundColor: theme.card }]}>
+              <MaterialIcons name="search" size={20} color={theme.icon} style={styles.searchIcon} />
+              <TextInput
+                style={[styles.searchInput, { color: theme.text }]}
+                placeholder={t('china.searchPlaceholder')}
+                placeholderTextColor={theme.placeholder}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                  <MaterialIcons name="close" size={18} color={theme.icon} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
           <DraggableFlatList
             data={visibleArticles}
             keyExtractor={(item) => item.id.toString()}
@@ -334,7 +371,7 @@ export default function ChinaStockScreen() {
             contentContainerStyle={styles.list}
             ListEmptyComponent={
               <Text style={[styles.emptyText, { color: theme.placeholder }]}>
-                {t('china.empty')}
+                {searchQuery ? t('china.noResults') : t('china.empty')}
               </Text>
             }
           />
@@ -435,6 +472,37 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.16,
     shadowRadius: 8,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  searchIcon: {
+    marginRight: 8,
+    opacity: 0.7,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    height: 40,
+  },
+  clearBtn: {
+    padding: 4,
+    borderRadius: 12,
   },
   list: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 120 },
   card: {

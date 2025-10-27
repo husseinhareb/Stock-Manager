@@ -94,6 +94,8 @@
     "editTitle": "Editar artículo",
     "save": "Guardar",
     "importing": "Importando artículos...",
+    "searchPlaceholder": "Buscar artículos...",
+    "noResults": "No hay resultados",
     "confirmDelete": {
       "title": "¿Eliminar artículo?",
       "message": "¿Estás seguro de que quieres eliminar \"{{name}}\"? Esta acción no se puede deshacer."
@@ -106,6 +108,8 @@
     "receiptTitle": "Recibo de {{name}}",
     "sharePDF": "Compartir PDF",
     "total": "Total: ${{total}}",
+    "searchPlaceholder": "Buscar clientes o artículos...",
+    "noResults": "No se encontraron resultados",
     "available": "Disponible: {{count}}",
     "placeholder": {
       "name": "Ingresar nombre del cliente"
