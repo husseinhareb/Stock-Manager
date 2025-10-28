@@ -169,10 +169,17 @@ export default function MapScreen() {
     html, body, #map { height:100%; margin:0; padding:0; }
     .marker-wrap { 
       position: relative; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    @keyframes markerBounce {
+      0% { transform: translateY(-20px); opacity: 0; }
+      60% { transform: translateY(-5px); opacity: 1; }
+      100% { transform: translateY(0); }
     }
     .marker-icon { 
       width: 40px; 
@@ -180,104 +187,109 @@ export default function MapScreen() {
       display: flex; 
       align-items: center; 
       justify-content: center;
-      border-radius: 50% 50% 50% 0;
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1e40af 100%);
-      box-shadow: 
-        0 8px 16px rgba(37, 99, 235, 0.4),
-        0 4px 8px rgba(30, 64, 175, 0.3),
-        inset 0 -2px 4px rgba(0, 0, 0, 0.2),
-        inset 0 2px 4px rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 3px 10px rgba(16, 185, 129, 0.4);
       border: 3px solid #ffffff;
-      transform: rotate(-45deg);
-      position: relative;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .marker-icon::before {
-      content: '';
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 14px;
-      height: 14px;
-      background: #ffffff;
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      transition: width 0.2s ease, height 0.2s ease, border-width 0.2s ease;
+    }
+    .marker-wrap.animate .marker-icon {
+      animation: markerBounce 0.4s ease-out;
+    }
+    /* Scale markers based on zoom level */
+    .zoom-small .marker-icon { 
+      width: 28px; 
+      height: 28px; 
+      border-width: 2px;
+    }
+    .zoom-small .marker-icon svg { 
+      width: 16px; 
+      height: 16px; 
+    }
+    .zoom-small .marker-label { 
+      font-size: 11px;
+      padding: 4px 8px;
+      top: calc(50% + 20px);
     }
     .marker-icon svg { 
-      width: 20px; 
-      height: 20px; 
-      transform: rotate(45deg);
+      width: 22px; 
+      height: 22px; 
       position: relative;
       z-index: 1;
-      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
     }
     .marker-wrap:hover .marker-icon {
-      transform: rotate(-45deg) scale(1.15);
-      box-shadow: 
-        0 12px 24px rgba(37, 99, 235, 0.5),
-        0 6px 12px rgba(30, 64, 175, 0.4),
-        inset 0 -2px 4px rgba(0, 0, 0, 0.2),
-        inset 0 2px 4px rgba(255, 255, 255, 0.3),
-        0 0 20px rgba(59, 130, 246, 0.6);
+      transform: translate(-50%, -50%) scale(1.1);
+      box-shadow: 0 5px 15px rgba(16, 185, 129, 0.5);
+    }
+    @keyframes markerPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
     }
     .marker-label { 
       position: absolute; 
-      top: 48px; 
+      top: calc(50% + 28px);
       left: 50%; 
       transform: translateX(-50%);
-      background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
-      color: #ffffff; 
-      padding: 8px 14px; 
-      border-radius: 12px; 
+      background: #ffffff;
+      color: #1f2937; 
+      padding: 6px 12px; 
+      border-radius: 8px; 
       font-size: 13px; 
-      font-weight: 700; 
+      font-weight: 600; 
       white-space: nowrap; 
       pointer-events: none; 
-      box-shadow: 
-        0 8px 24px rgba(0, 0, 0, 0.4),
-        0 4px 12px rgba(0, 0, 0, 0.3),
-        inset 0 1px 2px rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      letter-spacing: 0.3px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      border: 1px solid #e5e7eb;
+      transition: top 0.2s ease, font-size 0.2s ease, padding 0.2s ease;
+      opacity: 0;
+      animation: labelFadeIn 0.3s ease-out 0.2s forwards;
+    }
+    @keyframes labelFadeIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
     .marker-wrap:hover .marker-label {
-      transform: translateX(-50%) translateY(-4px);
-      box-shadow: 
-        0 12px 32px rgba(0, 0, 0, 0.5),
-        0 6px 16px rgba(0, 0, 0, 0.4),
-        inset 0 1px 2px rgba(255, 255, 255, 0.15);
+      transform: translateX(-50%) translateY(-3px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
     .marker-label::before { 
       content: ''; 
       position: absolute; 
       left: 50%; 
       transform: translateX(-50%); 
-      top: -6px; 
+      top: -4px; 
       width: 0; 
       height: 0; 
-      border-left: 8px solid transparent;
-      border-right: 8px solid transparent;
-      border-bottom: 8px solid rgba(30, 41, 59, 0.95);
-      filter: drop-shadow(0 -2px 4px rgba(0, 0, 0, 0.2));
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-bottom: 5px solid #ffffff;
     }
-    /* Pulse animation for newly added pins */
+    /* Pulse animation for pins */
     @keyframes pulse-ring {
-      0% { transform: scale(0.8); opacity: 1; }
-      100% { transform: scale(2.5); opacity: 0; }
+      0% { 
+        transform: translate(-50%, -50%) scale(1); 
+        opacity: 0.6; 
+      }
+      100% { 
+        transform: translate(-50%, -50%) scale(2.5); 
+        opacity: 0; 
+      }
     }
-    .marker-icon.pulse::after {
+    .marker-icon.pulse::before {
       content: '';
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%);
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      background: rgba(59, 130, 246, 0.4);
+      border: 2px solid rgba(16, 185, 129, 0.6);
       animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      z-index: -1;
     }
   </style>
   </head><body>
@@ -381,24 +393,50 @@ export default function MapScreen() {
 
     // ---------- Markers bridge (styled divIcons with labels) ----------
     let layer = L.layerGroup().addTo(map);
+    
     function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    
+    // Update marker size based on zoom level using CSS classes only
+    function updateMarkerSize() {
+      const zoom = map.getZoom();
+      const isSmall = zoom <= 5;
+      const wrappers = document.querySelectorAll('.marker-wrap');
+      wrappers.forEach(w => {
+        if (isSmall) {
+          w.classList.add('zoom-small');
+        } else {
+          w.classList.remove('zoom-small');
+        }
+      });
+    }
+    
+    map.on('zoomend', updateMarkerSize);
+    
     function setMarkers(list) {
       layer.clearLayers();
       (list || []).forEach(m => {
-    const safeName = escapeHtml(m.name || '');
-    const markHtml = '<div class="marker-wrap">'
-      + '<div class="marker-icon">'
-          + '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">'
-            + '<path fill="#ffffff" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>'
-          + '</svg>'
-        + '</div>'
-      + '<div class="marker-label">' + safeName + '</div>'
-    + '</div>';
-    const icon = L.divIcon({ className: '', html: markHtml, iconSize: [160, 90], iconAnchor: [80, 40] });
+        const safeName = escapeHtml(m.name || '');
+        const markHtml = '<div class="marker-wrap animate">'
+          + '<div class="marker-icon">'
+              + '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">'
+                + '<path fill="#ffffff" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>'
+              + '</svg>'
+            + '</div>'
+          + '<div class="marker-label">' + safeName + '</div>'
+        + '</div>';
+        
+        const icon = L.divIcon({ 
+          className: '', 
+          html: markHtml, 
+          iconSize: [80, 80], 
+          iconAnchor: [40, 40] 
+        });
+        
         const marker = L.marker([m.latitude, m.longitude], { icon });
         marker.on('click', () => RN && RN.postMessage(JSON.stringify({ type:'markerPress', id: m.id })));
         marker.addTo(layer);
       });
+      updateMarkerSize();
     }
     window.__setMarkers = setMarkers;
   </script>
