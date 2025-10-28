@@ -5,31 +5,31 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
-    Animated,
-    Easing,
-    FlatList,
-    KeyboardAvoidingView,
-    Modal,
-    PanResponder,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View
+	Alert,
+	Animated,
+	Easing,
+	FlatList,
+	KeyboardAvoidingView,
+	Modal,
+	PanResponder,
+	Platform,
+	Pressable,
+	StyleSheet,
+	Text,
+	TextInput,
+	View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Article, Price } from '@/src/db';
 import {
-    fetchMainStock,
-    fetchPrices,
-    fetchSecondaryStock,
-    getSetting,
-    moveToSecondary,
-    returnToMain,
-    setPrice,
+	fetchMainStock,
+	fetchPrices,
+	fetchSecondaryStock,
+	getSetting,
+	moveToSecondary,
+	returnToMain,
+	setPrice,
 } from '@/src/db';
 import { Colors } from '@constants/Colors';
 import { useColorScheme } from '@hooks/useColorScheme';
@@ -97,6 +97,12 @@ export default function BrazilStockScreen() {
 		return m;
 	}, [prices]);
 
+	// Keep refs to latest data for drag operations
+	const brazilStockRef = useRef(brazilStock);
+	const priceMapRef = useRef(priceMap);
+	useEffect(() => { brazilStockRef.current = brazilStock; }, [brazilStock]);
+	useEffect(() => { priceMapRef.current = priceMap; }, [priceMap]);
+
 	const mainTotalQty = useMemo(() => mainStock.reduce((s, a) => s + a.quantity, 0), [mainStock]);
 	const brazilTotalQty = useMemo(() => brazilStock.reduce((s, a) => s + a.quantity, 0), [brazilStock]);
 	const brazilTotalVal = useMemo(() =>
@@ -121,19 +127,20 @@ export default function BrazilStockScreen() {
 	};
 
 	const renderMoveItem = ({ item }: { item: Article }) => {
+		const isDragging = draggingItem?.id === item.id && dragOrigin === 'main';
 		return (
 			<Pressable
 				collapsable={false}
-				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
+				ref={(el) => { if (el) rowRefs.current[`main-${item.id}`] = el; }}
 				onLongPress={(e) => startDrag(item, 'main', e.nativeEvent)}
-				delayLongPress={180}
+				delayLongPress={150}
 				style={({ pressed }) => [
 					styles.card,
 					{
 						backgroundColor: theme.card,
 						shadowColor: theme.shadow,
-						opacity: draggingItem?.id === item.id ? 0 : 1,
-						transform: pressed ? [{ scale: 0.97 }] : [{ scale: 1 }],
+						opacity: isDragging ? 0 : 1,
+						transform: pressed ? [{ scale: 0.98 }] : [{ scale: 1 }],
 					},
 				]}>
 				<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
@@ -146,21 +153,22 @@ export default function BrazilStockScreen() {
 	};
 
 	const renderViewItem = ({ item }: { item: Article }) => {
+		const isDragging = draggingItem?.id === item.id && dragOrigin === 'brazil';
 		const unit = priceMap[item.id] || 0;
 		const total = (unit * item.quantity).toFixed(2);
 		return (
 			<Pressable
 				collapsable={false}
-				ref={(el) => { if (el) rowRefs.current[item.id] = el; }}
+				ref={(el) => { if (el) rowRefs.current[`brazil-${item.id}`] = el; }}
 				onLongPress={(e) => startDrag(item, 'brazil', e.nativeEvent)}
-				delayLongPress={180}
+				delayLongPress={150}
 				style={({ pressed }) => [
 					styles.card,
 					{
 						backgroundColor: theme.card,
 						shadowColor: theme.shadow,
-						opacity: draggingItem?.id === item.id ? 0 : 1,
-						transform: pressed ? [{ scale: 0.97 }] : [{ scale: 1 }],
+						opacity: isDragging ? 0 : 1,
+						transform: pressed ? [{ scale: 0.98 }] : [{ scale: 1 }],
 					},
 				]}>
 				<FontAwesome name="archive" size={20} color={theme.accent} style={styles.icon} />
@@ -217,14 +225,15 @@ export default function BrazilStockScreen() {
 	const [transferQty, setTransferQty] = useState('');
 	const [transferPrice, setTransferPrice] = useState('');
 	const [qtyWarning, setQtyWarning] = useState('');
+	const [needsPriceInput, setNeedsPriceInput] = useState(false);
 	const transferSourceRef = useRef<Article | null>(null);
 
 	// Root container offset (to align window coords with overlay coords)
 	const rootRef = useRef<any>(null);
 	const rootOffsetRef = useRef({ x: 0, y: 0 });
 
-	// Per-row refs so we can measure the actual grabbed row
-	const rowRefs = useRef<Record<number, any>>({});
+	// Per-row refs so we can measure the actual grabbed row (using origin-specific keys)
+	const rowRefs = useRef<Record<string, any>>({});
 
 	// Live preview size (match grabbed row)
 	const [previewSize, setPreviewSize] = useState({ width: 260, height: 56 });
@@ -266,8 +275,33 @@ export default function BrazilStockScreen() {
 				dragPos.setValue({ x: 0, y: 0 });
 			});
 			
-			// Open modal almost immediately (slight delay for smooth transition)
+			// Check if we need price input or can transfer directly
 			setTimeout(() => {
+				const src = transferSourceRef.current;
+				const origin = transferOriginRef.current;
+				
+				// If moving from China to Brazil, check if item already exists in Brazil with a price
+				if (origin === 'main' && src) {
+					const currentBrazilStock = brazilStockRef.current;
+					const currentPriceMap = priceMapRef.current;
+					
+					const existsInBrazil = currentBrazilStock.some((item: Article) => item.id === src.id);
+					const hasPrice = currentPriceMap[src.id] !== undefined && currentPriceMap[src.id] > 0;
+					
+					if (existsInBrazil && hasPrice) {
+						// Item exists in Brazil with a price - no need for price input
+						setNeedsPriceInput(false);
+						setTransferPrice(currentPriceMap[src.id].toString());
+					} else {
+						// New item or no price - need price input
+						setNeedsPriceInput(true);
+						setTransferPrice('');
+					}
+				} else {
+					// Returning from Brazil to China - never needs price
+					setNeedsPriceInput(false);
+				}
+				
 				setTransferModalVisible(true);
 			}, 100);
 			return;
@@ -320,25 +354,27 @@ export default function BrazilStockScreen() {
 			onMoveShouldSetPanResponderCapture: () => !!transferSourceRef.current,
 			onPanResponderMove: (_, gs) => {
 				if (!transferSourceRef.current) return;
-				// convert window coords -> overlay coords using root offset and keep preview anchored at the exact press point
+				
+				// Optimized position calculation
 				const { x: cx, y: cy } = rootOffsetRef.current;
 				const { dx, dy } = pressOffsetRef.current;
 				const w = previewSizeRef.current.width, h = previewSizeRef.current.height;
-				// pickup scale with smooth tracking
 				const s = 1.08;
 				const cxLocal = w / 2;
 				const cyLocal = h / 2;
 				const A = gs.moveX - cx;
 				const B = gs.moveY - cy;
-				// keep the exact pressed point under the finger while scaling about the center
 				const left = A - s * dx + (s - 1) * cxLocal;
 				const top = B - s * dy + (s - 1) * cyLocal;
+				
+				// Direct value setting for immediate response
 				dragPos.setValue({ x: left, y: top });
-
-				// Add subtle tilt based on drag direction
-				const tiltAmount = Math.max(-5, Math.min(5, gs.vx * 2));
+				
+				// Minimal tilt for performance
+				const tiltAmount = Math.max(-3, Math.min(3, gs.vx * 0.8));
 				dragRotation.setValue(tiltAmount);
 
+				// Fast hit detection with early returns
 				const x = gs.moveX, y = gs.moveY;
 				const origin = transferOriginRef.current;
 				let newTarget: 'main' | 'brazil' | null = null;
@@ -355,13 +391,11 @@ export default function BrazilStockScreen() {
 					}
 				}
 
-				// Trigger haptic only when entering/leaving a drop zone
+				// Throttled haptic feedback for performance
 				if (newTarget !== highlightTarget) {
 					const now = Date.now();
-					if (now - lastHapticTime.current > 100) { // Throttle haptics
+					if (now - lastHapticTime.current > 150) {
 						if (newTarget) {
-							Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-						} else {
 							Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 						}
 						lastHapticTime.current = now;
@@ -392,14 +426,16 @@ export default function BrazilStockScreen() {
 		// Immediate haptic feedback on pickup
 		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-		setDraggingItem(item);
+		// Set refs immediately but delay state update to avoid flicker
 		setDragOrigin(origin);
 		transferOriginRef.current = origin;
 		transferSourceRef.current = item;
 
 		// Try to measure the actual row so the preview matches its size and position
+		// Use origin-specific key to get the correct row ref
+		const rowKey = origin === 'main' ? `main-${item.id}` : `brazil-${item.id}`;
 		try {
-			rowRefs.current[item.id]?.measureInWindow?.((rx: number, ry: number, rw: number, rh: number) => {
+			rowRefs.current[rowKey]?.measureInWindow?.((rx: number, ry: number, rw: number, rh: number) => {
 				setPreviewSize({ width: rw, height: rh });
 				// store exact local touch offset inside the row (relative to row's top-left)
 				pressOffsetRef.current = {
@@ -436,6 +472,11 @@ export default function BrazilStockScreen() {
 					}),
 				]).start();
 
+				// Hide original item only after preview is positioned
+				requestAnimationFrame(() => {
+					setDraggingItem(item);
+				});
+
 				// measure section bounds for hit-testing
 				try {
 					mainRef.current?.measureInWindow?.((x: number, y: number, w: number, h: number) => { mainLayout.current = { x, y, width: w, height: h }; });
@@ -463,6 +504,11 @@ export default function BrazilStockScreen() {
 				tension: 50,
 				useNativeDriver: false
 			}).start();
+			
+			// Hide original item after preview is positioned
+			requestAnimationFrame(() => {
+				setDraggingItem(item);
+			});
 		}
 	};
 
@@ -530,24 +576,29 @@ export default function BrazilStockScreen() {
 			return Alert.alert(t('brazil.alert.invalidQty'), t('brazil.alert.qtyExceedsMax', { max: src.quantity }));
 		}
 		
-		// Validate price
-		if (isNaN(price) || price < 0) {
+		// Validate price only when moving from China to Brazil AND we need price input (item doesn't exist in Brazil yet)
+		if (dragOrigin === 'main' && needsPriceInput && (isNaN(price) || price < 0)) {
 			return Alert.alert(t('brazil.alert.invalidPrice'), t('brazil.alert.priceMustBePositive'));
 		}
 		
 		try {
 			if (dragOrigin === 'main') {
+				// Moving from China to Brazil: set price (only if we needed price input, otherwise use existing)
 				await moveToSecondary(src.id, qty);
-				await setPrice(src.id, price);
+				if (needsPriceInput) {
+					await setPrice(src.id, price);
+				}
+				// If not needsPriceInput, the price already exists in Brazil, so we don't update it
 			} else if (dragOrigin === 'brazil') {
+				// Returning from Brazil to China: no price needed
 				await returnToMain(src.id, qty);
-				await setPrice(src.id, price);
 			}
 			setTransferModalVisible(false);
 			transferSourceRef.current = null;
 			transferOriginRef.current = null;
 			setDragOrigin(null);
 			setQtyWarning('');
+			setNeedsPriceInput(false);
 			await loadData();
 		} catch (e: any) {
 			Alert.alert(t('brazil.alert.transferFailed'), e.message);
@@ -585,18 +636,23 @@ export default function BrazilStockScreen() {
 					<Text style={[styles.sectionTitle, { color: theme.primary }]}>{t('brazil.chinaStock')}</Text>
 					<FlatList
 						data={mainStock.filter(a => a.quantity > 0)}
-						keyExtractor={i => i.id.toString()}
+						keyExtractor={i => `main-${i.id}`}
 						renderItem={renderMoveItem}
 						style={styles.listScroll}
 						showsVerticalScrollIndicator={false}
 						keyboardShouldPersistTaps="handled"
 						keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
 						scrollEnabled={!draggingItem}
-						removeClippedSubviews={false}
-						windowSize={7}
-						initialNumToRender={12}
-						maxToRenderPerBatch={12}
-						updateCellsBatchingPeriod={50}
+						removeClippedSubviews={Platform.OS === 'android'}
+						windowSize={5}
+						initialNumToRender={10}
+						maxToRenderPerBatch={8}
+						updateCellsBatchingPeriod={100}
+						getItemLayout={(data, index) => ({
+							length: 64,
+							offset: 64 * index,
+							index,
+						})}
 					/>
 					<View style={[styles.footerBar, { borderTopColor: theme.border }]}>
 						<FontAwesome name="cubes" size={18} color={theme.accent} />
@@ -620,18 +676,23 @@ export default function BrazilStockScreen() {
 					<Text style={[styles.heading, { color: theme.primary }]}>{t('brazil.brazilStock')}</Text>
 					<FlatList
 						data={brazilStock.filter(a => a.quantity > 0)}
-						keyExtractor={i => i.id.toString()}
+						keyExtractor={i => `brazil-${i.id}`}
 						renderItem={renderViewItem}
 						style={styles.listScroll}
 						showsVerticalScrollIndicator={false}
 						keyboardShouldPersistTaps="handled"
 						keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
 						scrollEnabled={!draggingItem}
-						removeClippedSubviews={false}
-						windowSize={7}
-						initialNumToRender={12}
-						maxToRenderPerBatch={12}
-						updateCellsBatchingPeriod={50}
+						removeClippedSubviews={Platform.OS === 'android'}
+						windowSize={5}
+						initialNumToRender={10}
+						maxToRenderPerBatch={8}
+						updateCellsBatchingPeriod={100}
+						getItemLayout={(data, index) => ({
+							length: 64,
+							offset: 64 * index,
+							index,
+						})}
 						extraData={priceMap}
 					/>
 					<View style={[styles.footerBar, { borderTopColor: theme.border }]}>
@@ -761,20 +822,23 @@ export default function BrazilStockScreen() {
 								)}
 							</View>
 
-							<View style={styles.modalInputContainer}>
-								<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-									<FontAwesome name="dollar" size={14} color={theme.text} style={{ marginRight: 6 }} />
-									<Text style={[styles.inputLabel, { color: theme.text, marginBottom: 0 }]}>{t('brazil.placeholder.unitPrice')}</Text>
+							{/* Only show price input when moving from China to Brazil AND item doesn't exist in Brazil yet */}
+							{dragOrigin === 'main' && needsPriceInput && (
+								<View style={styles.modalInputContainer}>
+									<View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+										<FontAwesome name="dollar" size={14} color={theme.text} style={{ marginRight: 6 }} />
+										<Text style={[styles.inputLabel, { color: theme.text, marginBottom: 0 }]}>{t('brazil.placeholder.unitPrice')}</Text>
+									</View>
+									<TextInput
+										style={[styles.modalInput, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '05', color: theme.text }]}
+										placeholder={t('brazil.placeholder.unitPrice')}
+										placeholderTextColor={theme.placeholder}
+										keyboardType={Platform.select({ ios: 'decimal-pad', android: 'number-pad' })}
+										value={transferPrice}
+										onChangeText={setTransferPrice}
+									/>
 								</View>
-								<TextInput
-									style={[styles.modalInput, { borderColor: theme.primary + '30', backgroundColor: theme.primary + '05', color: theme.text }]}
-									placeholder={t('brazil.placeholder.unitPrice')}
-									placeholderTextColor={theme.placeholder}
-									keyboardType={Platform.select({ ios: 'decimal-pad', android: 'number-pad' })}
-									value={transferPrice}
-									onChangeText={setTransferPrice}
-								/>
-							</View>
+							)}
 
 							{/* Enhanced action buttons */}
 							<View style={styles.modalActions}>
@@ -785,7 +849,8 @@ export default function BrazilStockScreen() {
 										transferOriginRef.current = null; 
 										setDragOrigin(null); 
 										setHighlightTarget(null); 
-										setQtyWarning(''); 
+										setQtyWarning('');
+										setNeedsPriceInput(false);
 									}}
 									style={({ pressed }) => [
 										styles.modalBtn,

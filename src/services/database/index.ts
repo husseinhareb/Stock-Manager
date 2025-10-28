@@ -670,11 +670,26 @@ export async function deleteSavedClient(clientId: number): Promise<void> {
     const db = await getDB();
     await db.execAsync(`BEGIN IMMEDIATE;`);
     try {
+      // Get the client name before deleting
+      const client = await db.getFirstAsync<{ client: string }>(
+        `SELECT client FROM saved_clients WHERE id = ?;`,
+        clientId
+      );
+      
       await db.runAsync(
         `DELETE FROM saved_client_items WHERE client_id = ?;`,
         clientId
       );
       await db.runAsync(`DELETE FROM saved_clients WHERE id = ?;`, clientId);
+      
+      // Also delete the corresponding map pin if it exists
+      if (client) {
+        await db.runAsync(
+          `DELETE FROM clients WHERE name = ?;`,
+          client.client
+        );
+      }
+      
       await db.execAsync(`COMMIT;`);
     } catch (error) {
       await db.execAsync(`ROLLBACK;`);

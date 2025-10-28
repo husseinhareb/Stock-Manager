@@ -439,15 +439,10 @@ export default function ClientScreen() {
                 </View>
               </View>
 
-              <View style={styles.footerButtons}>
-                <Pressable onPress={saveClient} style={[styles.actionBtn, { backgroundColor: theme.accent }]}> 
-                  <FontAwesome name="save" size={18} color="#fff" />
-                  <Text style={styles.actionBtnText}>{t('common.save')}</Text>
-                </Pressable>
-                <Pressable onPress={() => shareReceipt({ client: clientName, total: currentTotal, items: currentItems })} style={[styles.actionBtn, { backgroundColor: theme.accent }]}> 
-                  <Text style={styles.actionBtnText}>{t('client.sharePDF')}</Text>
-                </Pressable>
-              </View>
+              <Pressable onPress={saveClient} style={[styles.actionBtn, { backgroundColor: theme.accent }]}> 
+                <FontAwesome name="save" size={18} color="#fff" />
+                <Text style={styles.actionBtnText}>{t('common.save')}</Text>
+              </Pressable>
             </View>
           </>
         ) : (
@@ -598,12 +593,6 @@ export default function ClientScreen() {
                   </Text>
                 </View>
                 <View style={styles.receiptDoubleLine} />
-              </View>
-
-              {/* Thank You Message */}
-              <View style={styles.receiptFooterMsg}>
-                <Text style={styles.receiptThankYou}>Thank You!</Text>
-                <Text style={styles.receiptFooterText}>Please come again</Text>
               </View>
 
               {/* Action Buttons */}
