@@ -5,32 +5,32 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-	Alert,
-	Animated,
-	Easing,
-	FlatList,
-	KeyboardAvoidingView,
-	Modal,
-	PanResponder,
-	Platform,
-	Pressable,
-	RefreshControl,
-	StyleSheet,
-	Text,
-	TextInput,
-	View
+    Alert,
+    Animated,
+    Easing,
+    FlatList,
+    KeyboardAvoidingView,
+    Modal,
+    PanResponder,
+    Platform,
+    Pressable,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TextInput,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Article, Price } from '@/src/db';
 import {
-	fetchMainStock,
-	fetchPrices,
-	fetchSecondaryStock,
-	getSetting,
-	moveToSecondary,
-	returnToMain,
-	setPrice,
+    fetchMainStock,
+    fetchPrices,
+    fetchSecondaryStock,
+    getSetting,
+    moveToSecondary,
+    returnToMain,
+    setPrice,
 } from '@/src/db';
 import { Colors } from '@constants/Colors';
 import { useColorScheme } from '@hooks/useColorScheme';
@@ -649,6 +649,14 @@ export default function BrazilStockScreen() {
 						maxToRenderPerBatch={12}
 						updateCellsBatchingPeriod={50}
 						extraData={priceMap}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={onRefresh}
+								colors={[theme.accent]}
+								tintColor={theme.accent}
+							/>
+						}
 					/>
 					<View style={[styles.footerBar, { borderTopColor: theme.border }]}>
 						<FontAwesome name="cubes" size={18} color={theme.accent} />
