@@ -96,6 +96,7 @@ export default function ClientScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [qtyWarnings, setQtyWarnings] = useState<Record<number, string>>({});
 
   // Clear search when switching between modes
   useEffect(() => {
@@ -109,6 +110,7 @@ export default function ClientScreen() {
         setIsBuilding(false);
         setClientName('');
         setSelection({});
+        setQtyWarnings({});
         return true; // Prevent default behavior
       };
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
@@ -207,7 +209,7 @@ export default function ClientScreen() {
       await Promise.all(currentItems.map((it) => sellSecondary(it.id, it.quantity)));
       await persistClient(clientName.trim(), currentItems.map((it) => ({ article_id: it.id, quantity: it.quantity, price: it.unitPrice, name: it.name })));
       Alert.alert(t('client.alert.clientSaved'));
-      setSelection({}); setClientName(''); setIsBuilding(false); loadData();
+      setSelection({}); setClientName(''); setQtyWarnings({}); setIsBuilding(false); loadData();
     } catch (e: any) { 
       Alert.alert(t('client.alert.error'), e.message); 
     } finally {
@@ -230,6 +232,30 @@ export default function ClientScreen() {
   };
 
   const handleDelete = async (id: number) => { try { await deleteSavedClient(id); loadData(); } catch (e: any) { Alert.alert(t('client.alert.error'), e.message); } };
+
+  const handleQtyChange = (itemId: number, value: string, availableQty: number) => {
+    setSelection((sel) => ({ ...sel, [itemId]: value }));
+    
+    // Validate quantity
+    const qty = parseInt(value || '0', 10);
+    if (value === '') {
+      setQtyWarnings((warnings) => {
+        const next = { ...warnings };
+        delete next[itemId];
+        return next;
+      });
+    } else if (isNaN(qty) || qty <= 0) {
+      setQtyWarnings((warnings) => ({ ...warnings, [itemId]: t('brazil.alert.qtyMustBePositive') }));
+    } else if (qty > availableQty) {
+      setQtyWarnings((warnings) => ({ ...warnings, [itemId]: t('brazil.alert.qtyExceedsMax', { max: availableQty }) }));
+    } else {
+      setQtyWarnings((warnings) => {
+        const next = { ...warnings };
+        delete next[itemId];
+        return next;
+      });
+    }
+  };
 
   const shareReceipt = async (cart: ReceiptPayload) => {
     const itemsRows = cart.items.map((it) => `
@@ -526,6 +552,7 @@ export default function ClientScreen() {
                   setIsBuilding(false);
                   setClientName('');
                   setSelection({});
+                  setQtyWarnings({});
                 }}
                 style={styles.cancelBtn}
               >
@@ -580,49 +607,69 @@ export default function ClientScreen() {
                 {filteredBrazilStock.map((a) => {
                 const raw = selection[a.id];
                 const selected = raw !== undefined;
+                const warning = qtyWarnings[a.id];
                 return (
-                  <View
-                    key={a.id}
-                    style={[
-                      styles.card,
-                      { backgroundColor: theme.card, shadowColor: theme.shadow },
-                    ]}
-                  >
-                    <Pressable
-                      onPress={() =>
-                        setSelection((sel) => {
-                          const next = { ...sel };
-                          if (selected) delete next[a.id];
-                          else next[a.id] = '1';
-                          return next;
-                        })
-                      }
-                    >
-                      <MaterialIcons
-                        name={
-                          selected ? 'check-box' : 'check-box-outline-blank'
-                        }
-                        size={24}
-                        color={theme.accent}
-                      />
-                    </Pressable>
-                    <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
-                      {a.name}
-                    </Text>
-                    <Text style={[styles.infoText, { color: theme.text }]}> {t('client.available', { count: a.quantity })} </Text>
-                    <Text style={[styles.infoText, { color: theme.text }]}>{`${currencySymbol}${(priceMap[a.id] || 0).toFixed(2)}`}</Text>
-                    <TextInput
-                      value={raw}
-                      editable={selected}
-                      keyboardType="numeric"
-                      onChangeText={(val) => setSelection((sel) => ({ ...sel, [a.id]: val }))}
+                  <View key={a.id}>
+                    <View
                       style={[
-                        styles.qtyInput,
-                        { borderColor: theme.border, color: theme.text, backgroundColor: theme.background },
+                        styles.card,
+                        { backgroundColor: theme.card, shadowColor: theme.shadow },
                       ]}
-                      placeholder={t('client.table.qty')}
-                      placeholderTextColor={theme.placeholder}
-                    />
+                    >
+                      <Pressable
+                        onPress={() =>
+                          setSelection((sel) => {
+                            const next = { ...sel };
+                            if (selected) {
+                              delete next[a.id];
+                              setQtyWarnings((warnings) => {
+                                const nextWarnings = { ...warnings };
+                                delete nextWarnings[a.id];
+                                return nextWarnings;
+                              });
+                            } else {
+                              next[a.id] = '1';
+                            }
+                            return next;
+                          })
+                        }
+                      >
+                        <MaterialIcons
+                          name={
+                            selected ? 'check-box' : 'check-box-outline-blank'
+                          }
+                          size={24}
+                          color={theme.accent}
+                        />
+                      </Pressable>
+                      <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
+                        {a.name}
+                      </Text>
+                      <Text style={[styles.infoText, { color: theme.text }]}> {t('client.available', { count: a.quantity })} </Text>
+                      <Text style={[styles.infoText, { color: theme.text }]}>{`${currencySymbol}${(priceMap[a.id] || 0).toFixed(2)}`}</Text>
+                      <TextInput
+                        value={raw}
+                        editable={selected}
+                        keyboardType="numeric"
+                        onChangeText={(val) => handleQtyChange(a.id, val, a.quantity)}
+                        style={[
+                          styles.qtyInput,
+                          { 
+                            borderColor: warning ? '#e74c3c' : theme.border, 
+                            backgroundColor: warning ? '#e74c3c15' : theme.background,
+                            color: theme.text 
+                          },
+                        ]}
+                        placeholder={t('client.table.qty')}
+                        placeholderTextColor={theme.placeholder}
+                      />
+                    </View>
+                    {warning && selected && (
+                      <View style={[styles.itemWarning, { backgroundColor: '#fee2e2' }]}>
+                        <MaterialIcons name="error-outline" size={14} color="#dc2626" />
+                        <Text style={[styles.itemWarningText, { color: '#dc2626' }]}>{warning}</Text>
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -813,13 +860,6 @@ export default function ClientScreen() {
               {/* Total Section */}
               <View style={styles.receiptDashedLine} />
               <View style={styles.receiptTotalSection}>
-                <View style={styles.receiptSubtotalRow}>
-                  <Text style={styles.receiptSubtotalLabel}>Subtotal:</Text>
-                  <Text style={styles.receiptSubtotalValue}>
-                    {detailModal ? `${currencySymbol}${detailModal.total.toFixed(2)}` : ''}
-                  </Text>
-                </View>
-                <View style={styles.receiptDoubleLine} />
                 <View style={styles.receiptGrandTotalRow}>
                   <Text style={styles.receiptGrandTotalLabel}>TOTAL:</Text>
                   <Text style={styles.receiptGrandTotalValue}>
@@ -972,6 +1012,22 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 16,
     fontWeight: '700',
+  },
+  itemWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: -4,
+    marginBottom: 8,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+  },
+  itemWarningText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
   },
 
   // Builder

@@ -830,12 +830,27 @@ export default function BrazilStockScreen() {
 							{transferSourceRef.current && (
 								<View style={styles.modalItemInfo}>
 									<Text style={[styles.modalItemName, { color: theme.text }]}>{transferSourceRef.current.name}</Text>
-									<View style={[styles.maxQtyBadge, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
+									<Pressable 
+										onPress={() => {
+											if (transferSourceRef.current) {
+												setTransferQty(transferSourceRef.current.quantity.toString());
+												setQtyWarning('');
+											}
+										}}
+										style={({ pressed }) => [
+											styles.maxQtyBadge, 
+											{ 
+												backgroundColor: theme.accent + '15', 
+												borderColor: theme.accent,
+												opacity: pressed ? 0.7 : 1
+											}
+										]}
+									>
 										<FontAwesome name="archive" size={12} color={theme.accent} style={{ marginRight: 4 }} />
 										<Text style={[styles.maxQtyText, { color: theme.accent }]}>
 											{t('brazil.transfer.maxAvailable', { max: transferSourceRef.current.quantity })}
 										</Text>
-									</View>
+									</Pressable>
 								</View>
 							)}
 
