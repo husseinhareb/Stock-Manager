@@ -95,6 +95,12 @@ export default function ClientScreen() {
   const [detailModal, setDetailModal] = useState<SavedClientDetail | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Clear search when switching between modes
+  useEffect(() => {
+    setSearchQuery('');
+  }, [isBuilding]);
 
   // Handle Android hardware back button when building to cancel
   useEffect(() => {
@@ -155,7 +161,21 @@ export default function ClientScreen() {
   const currentTotal = useMemo(() => currentItems.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0), [currentItems]);
   const totalUnits = useMemo(() => currentItems.reduce((sum, it) => sum + it.quantity, 0), [currentItems]);
 
-  const distinctItems = currentItems.length;
+  // Check for validation errors in current selection
+  const validationErrors = useMemo(() => {
+    const errors: string[] = [];
+    currentItems.forEach(item => {
+      if (item.quantity > item.available) {
+        errors.push(`${item.name}: ${t('client.alert.qtyExceedsAvailable')}`);
+      }
+      if (item.unitPrice <= 0) {
+        errors.push(`${item.name}: ${t('client.alert.noPriceSet')}`);
+      }
+    });
+    return errors;
+  }, [currentItems, t]);
+
+  const hasValidationErrors = validationErrors.length > 0;
 
   // Filtered lists for search
   const filteredBrazilStock = useMemo(() => {
@@ -172,12 +192,27 @@ export default function ClientScreen() {
 
   const saveClient = async () => {
     if (!clientName.trim()) return Alert.alert(t('client.alert.enterName'));
-    if (currentItems.length === 0) return Alert.alert(t('client.alert.selectItem'));
+    if (currentItems.length === 0) return Alert.alert(t('client.alert.emptySelection'));
+    
+    // Validate before saving
+    if (hasValidationErrors) {
+      return Alert.alert(
+        t('client.alert.validationErrors'),
+        validationErrors.join('\n')
+      );
+    }
+
+    setIsSaving(true);
     try {
       await Promise.all(currentItems.map((it) => sellSecondary(it.id, it.quantity)));
       await persistClient(clientName.trim(), currentItems.map((it) => ({ article_id: it.id, quantity: it.quantity, price: it.unitPrice, name: it.name })));
+      Alert.alert(t('client.alert.clientSaved'));
       setSelection({}); setClientName(''); setIsBuilding(false); loadData();
-    } catch (e: any) { Alert.alert(t('client.alert.error'), e.message); }
+    } catch (e: any) { 
+      Alert.alert(t('client.alert.error'), e.message); 
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const openDetail = async (summary: SavedSummary) => {
@@ -197,72 +232,226 @@ export default function ClientScreen() {
   const handleDelete = async (id: number) => { try { await deleteSavedClient(id); loadData(); } catch (e: any) { Alert.alert(t('client.alert.error'), e.message); } };
 
   const shareReceipt = async (cart: ReceiptPayload) => {
-    const rows = cart.items.map((it) => `
-      <tr>
-        <td style=\\"padding: 8px; border: 1px solid #ccc;\\">${it.name}</td>
-        <td style=\\"padding: 8px; border: 1px solid #ccc; text-align: center;\\">${it.quantity}</td>
-        <td style=\\"padding: 8px; border: 1px solid #ccc; text-align: right;\\">${currencySymbol}${it.unitPrice.toFixed(2)}</td>
-        <td style=\\"padding: 8px; border: 1px solid #ccc; text-align: right;\\">${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}</td>
-      </tr>
+    const itemsRows = cart.items.map((it) => `
+      <div class="item-row">
+        <div class="item-left">
+          <div class="item-name">${it.name}</div>
+          <div class="item-qty">${it.quantity} x ${currencySymbol}${it.unitPrice.toFixed(2)}</div>
+        </div>
+        <div class="item-total">${currencySymbol}${(it.quantity * it.unitPrice).toFixed(2)}</div>
+      </div>
+      <div class="dotted-line"></div>
     `).join('');
 
     const html = `
+    <!DOCTYPE html>
     <html>
       <head>
         <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
           body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            padding: 24px;
-            color: #333;
+            font-family: 'Courier New', Courier, monospace;
+            background: white;
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+            color: #2c3e50;
           }
-          h1 {
-            font-size: 22px;
-            margin-bottom: 24px;
+          
+          .receipt {
+            background: white;
+            padding: 30px 20px;
+            border: 2px solid #2c3e50;
+          }
+          
+          .header {
             text-align: center;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
             margin-bottom: 24px;
+            border-bottom: 2px dashed #2c3e50;
+            padding-bottom: 16px;
           }
-          th {
-            background-color: #f2f2f2;
-            text-align: left;
-            padding: 8px;
-            border: 1px solid #ccc;
+          
+          .icon {
+            font-size: 48px;
+            margin-bottom: 8px;
           }
-          td {
-            font-size: 14px;
-          }
-          .total {
+          
+          .store-name {
+            font-size: 28px;
             font-weight: bold;
-            text-align: right;
-            padding: 8px;
-            border: 1px solid #ccc;
-            background-color: #f9f9f9;
+            letter-spacing: 4px;
+            margin-bottom: 4px;
+          }
+          
+          .receipt-label {
+            font-size: 14px;
+            letter-spacing: 2px;
+            color: #6b7280;
+          }
+          
+          .customer-section {
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #9ca3af;
+          }
+          
+          .customer-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+          }
+          
+          .customer-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+          }
+          
+          .items-section {
+            margin-bottom: 20px;
+          }
+          
+          .item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 12px 0;
+          }
+          
+          .item-left {
+            flex: 1;
+            margin-right: 12px;
+          }
+          
+          .item-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 4px;
+          }
+          
+          .item-qty {
+            font-size: 13px;
+            color: #6b7280;
+          }
+          
+          .item-total {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            white-space: nowrap;
+          }
+          
+          .dotted-line {
+            border-bottom: 1px dotted #d1d5db;
+            margin: 4px 0;
+          }
+          
+          .dashed-line {
+            border-bottom: 2px dashed #9ca3af;
+            margin: 16px 0;
+          }
+          
+          .double-line {
+            border-bottom: 3px double #2c3e50;
+            margin: 12px 0;
+          }
+          
+          .totals-section {
+            margin-top: 20px;
+            padding-top: 12px;
+            border-top: 2px dashed #2c3e50;
+          }
+          
+          .subtotal-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 15px;
+          }
+          
+          .subtotal-label {
+            color: #6b7280;
+            font-weight: bold;
+          }
+          
+          .subtotal-value {
+            font-weight: bold;
+            color: #2c3e50;
+          }
+          
+          .grand-total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            margin-top: 8px;
+            border-top: 3px double #2c3e50;
+            border-bottom: 3px double #2c3e50;
+          }
+          
+          .grand-total-label {
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 2px;
+          }
+          
+          .grand-total-value {
+            font-size: 24px;
+            font-weight: bold;
+          }
+          
+          .footer {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px dashed #d1d5db;
+            color: #9ca3af;
+            font-size: 12px;
           }
         </style>
       </head>
       <body>
-        <h1>${t('client.receiptTitle', { name: cart.client })}</h1>
-        <table>
-          <thead>
-            <tr>
-              <th>${t('client.table.item')}</th>
-              <th>${t('client.table.qty')}</th>
-              <th>${t('client.table.unitPrice')}</th>
-              <th>${t('client.table.total')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-            <tr>
-              <td colspan=\"3\" class=\"total\">${t('client.table.grandTotal')}</td>
-              <td class=\"total\">${currencySymbol}${cart.total.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="receipt">
+          <div class="header">
+            <div class="icon">👤</div>
+            <div class="store-name">RECEIPT</div>
+            <div class="receipt-label">SALES RECEIPT</div>
+          </div>
+          
+          <div class="customer-section">
+            <div class="customer-label">Customer</div>
+            <div class="customer-name">${cart.client}</div>
+          </div>
+          
+          <div class="items-section">
+            ${itemsRows}
+          </div>
+          
+          <div class="totals-section">
+            <div class="subtotal-row">
+              <span class="subtotal-label">Subtotal:</span>
+              <span class="subtotal-value">${currencySymbol}${cart.total.toFixed(2)}</span>
+            </div>
+            
+            <div class="grand-total-row">
+              <span class="grand-total-label">TOTAL</span>
+              <span class="grand-total-value">${currencySymbol}${cart.total.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            Thank you for your business!
+          </div>
+        </div>
       </body>
     </html>
   `;
@@ -322,6 +511,16 @@ export default function ClientScreen() {
         {isBuilding ? (
           <>
             <View style={styles.subHeaderRow}>
+              <TouchableOpacity
+                onPress={() => {
+                  setIsBuilding(false);
+                  setClientName('');
+                  setSelection({});
+                }}
+                style={styles.cancelBtn}
+              >
+                <MaterialIcons name="close" size={24} color={theme.primary} />
+              </TouchableOpacity>
               <FontAwesome name="user-circle" size={20} color={theme.primary} />
               <Text style={[styles.subHeader, { color: theme.primary }]}> 
                 {clientName || t('client.newClient')}
@@ -349,11 +548,26 @@ export default function ClientScreen() {
               </View>
             </View>
 
-            <ScrollView
-              style={styles.itemList}
-              contentContainerStyle={{ paddingBottom: 96 }}
-            >
-              {filteredBrazilStock.map((a) => {
+            {brazilStock.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <FontAwesome name="inbox" size={64} color={theme.icon} style={{ opacity: 0.4 }} />
+                <Text style={[styles.emptyText, { color: theme.text }]}>
+                  {t('client.alert.emptyStock')}
+                </Text>
+              </View>
+            ) : filteredBrazilStock.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <FontAwesome name="search" size={64} color={theme.icon} style={{ opacity: 0.4 }} />
+                <Text style={[styles.emptyText, { color: theme.text }]}>
+                  {t('client.noResults')}
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.itemList}
+                contentContainerStyle={{ paddingBottom: 96 }}
+              >
+                {filteredBrazilStock.map((a) => {
                 const raw = selection[a.id];
                 const selected = raw !== undefined;
                 return (
@@ -402,14 +616,17 @@ export default function ClientScreen() {
                   </View>
                 );
               })}
-            </ScrollView>
+              </ScrollView>
+            )}
+
             <View
               style={[
                 styles.builderFooter,
                 { backgroundColor: theme.card, borderColor: theme.border, bottom: 0 },
               ]}
             >
-              <View style={styles.totalBadges}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={styles.totalBadges}>
                 <View
                   style={[
                     styles.badge,
@@ -438,11 +655,30 @@ export default function ClientScreen() {
                   </Text>
                 </View>
               </View>
-
-              <Pressable onPress={saveClient} style={[styles.actionBtn, { backgroundColor: theme.accent }]}> 
-                <FontAwesome name="save" size={18} color="#fff" />
-                <Text style={styles.actionBtnText}>{t('common.save')}</Text>
-              </Pressable>
+                <Pressable 
+                  onPress={saveClient} 
+                  disabled={isSaving}
+                  style={[
+                    styles.actionBtn, 
+                    { 
+                      backgroundColor: isSaving ? theme.border : theme.accent,
+                      opacity: isSaving ? 0.6 : 1
+                    }
+                  ]}
+                > 
+                  {isSaving ? (
+                    <>
+                      <MaterialIcons name="hourglass-empty" size={18} color="#fff" />
+                      <Text style={styles.actionBtnText}>{t('client.alert.savingClient')}</Text>
+                    </>
+                  ) : (
+                    <>
+                      <FontAwesome name="save" size={18} color="#fff" />
+                      <Text style={styles.actionBtnText}>{t('common.save')}</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
             </View>
           </>
         ) : (
@@ -530,28 +766,16 @@ export default function ClientScreen() {
             <View style={styles.receiptPaper}>
               {/* Receipt Header - Store/Business Info */}
               <View style={styles.receiptHeader}>
-                <FontAwesome name="shopping-bag" size={28} color="#2c3e50" />
+                <FontAwesome name="user-circle" size={32} color="#2c3e50" />
                 <Text style={styles.receiptStoreName}>RECEIPT</Text>
                 <View style={styles.receiptDashedLine} />
               </View>
 
-              {/* Customer & Date Info */}
+              {/* Customer Info */}
               <View style={styles.receiptInfoSection}>
                 <View style={styles.receiptInfoRow}>
                   <Text style={styles.receiptLabel}>Customer:</Text>
                   <Text style={styles.receiptValue}>{detailModal?.client}</Text>
-                </View>
-                <View style={styles.receiptInfoRow}>
-                  <Text style={styles.receiptLabel}>Date:</Text>
-                  <Text style={styles.receiptValue}>
-                    {detailModal && detailModal.created_at ? new Date(detailModal.created_at).toLocaleDateString() : new Date().toLocaleDateString()}
-                  </Text>
-                </View>
-                <View style={styles.receiptInfoRow}>
-                  <Text style={styles.receiptLabel}>Time:</Text>
-                  <Text style={styles.receiptValue}>
-                    {detailModal && detailModal.created_at ? new Date(detailModal.created_at).toLocaleTimeString() : new Date().toLocaleTimeString()}
-                  </Text>
                 </View>
                 <View style={styles.receiptDashedLine} />
               </View>
@@ -748,6 +972,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingVertical: 4,
   },
+  cancelBtn: {
+    marginRight: 8,
+    padding: 4,
+  },
   subHeader: {
     fontSize: 18,
     fontWeight: '800',
@@ -795,9 +1023,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     /* bottom is injected inline */
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -805,6 +1031,19 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
+  },
+  validationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  validationText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   totalText: { fontSize: 18, fontWeight: '800', letterSpacing: 0.2 },
 

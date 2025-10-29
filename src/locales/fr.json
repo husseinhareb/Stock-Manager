@@ -114,6 +114,30 @@
         "available": "Disponible : {{count}}",
         "placeholder": {
             "name": "Entrer le nom du client"
+        },
+        "table": {
+            "item": "Article",
+            "qty": "Quantité",
+            "unitPrice": "Prix unitaire",
+            "total": "Total",
+            "grandTotal": "Total général"
+        },
+        "alert": {
+            "confirmDeleteTitle": "Supprimer le client ?",
+            "confirmDeleteMessage": "Cela supprimera définitivement ce client et son reçu. Continuer ?",
+            "loadFailed": "Échec du chargement des données",
+            "enterName": "Veuillez entrer un nom de client",
+            "selectItem": "Veuillez sélectionner au moins un article",
+            "error": "Une erreur est survenue",
+            "detailLoadFailed": "Échec du chargement des détails du client",
+            "shareFailed": "Échec du partage du reçu",
+            "qtyExceedsAvailable": "La quantité dépasse le stock disponible",
+            "noPriceSet": "Aucun prix défini",
+            "validationErrors": "Veuillez corriger les problèmes suivants :",
+            "emptyStock": "Aucun article dans le stock du Brésil",
+            "emptySelection": "Aucun article sélectionné",
+            "savingClient": "Enregistrement du client...",
+            "clientSaved": "Client enregistré avec succès !"
         }
     },
     "common": {

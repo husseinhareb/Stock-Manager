@@ -245,6 +245,10 @@ export default function ChinaStockScreen() {
     return filtered;
   }, [articles, searchQuery]);
 
+  const visibleTotal = useMemo(() => {
+    return visibleArticles.reduce((sum, article) => sum + article.quantity, 0);
+  }, [visibleArticles]);
+
   const commitReorder = useCallback(
     (newVisibleOrder: Article[]) => {
       const newVisibleIdQueue = newVisibleOrder.map(a => a.id);
@@ -378,7 +382,7 @@ export default function ChinaStockScreen() {
 
           <View style={[styles.footer, { backgroundColor: theme.footer, borderColor: theme.border }]}>
             <Text style={[styles.totalLabel, { color: theme.text }]}>{t('china.total')}</Text>
-            <Text style={[styles.totalValue, { color: theme.primary }]}>{total}</Text>
+            <Text style={[styles.totalValue, { color: theme.primary }]}>{visibleTotal}</Text>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

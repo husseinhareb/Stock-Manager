@@ -130,7 +130,14 @@
             "selectItem": "الرجاء اختيار عنصر واحد على الأقل",
             "error": "حدث خطأ",
             "detailLoadFailed": "فشل في تحميل تفاصيل العميل",
-            "shareFailed": "فشل في مشاركة الإيصال"
+            "shareFailed": "فشل في مشاركة الإيصال",
+            "qtyExceedsAvailable": "الكمية تتجاوز المخزون المتاح",
+            "noPriceSet": "لم يتم تحديد السعر",
+            "validationErrors": "يرجى إصلاح المشاكل التالية:",
+            "emptyStock": "لا توجد عناصر في مخزون البرازيل",
+            "emptySelection": "لم يتم اختيار أي عناصر",
+            "savingClient": "جارٍ حفظ العميل...",
+            "clientSaved": "تم حفظ العميل بنجاح!"
         }
     },
     "common": {

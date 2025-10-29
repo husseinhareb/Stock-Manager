@@ -129,7 +129,14 @@
       "selectItem": "Por favor selecciona al menos un artículo",
       "error": "Ocurrió un error",
       "detailLoadFailed": "Error al cargar detalles del cliente",
-      "shareFailed": "Error al compartir el recibo"
+      "shareFailed": "Error al compartir el recibo",
+      "qtyExceedsAvailable": "La cantidad excede el stock disponible",
+      "noPriceSet": "Sin precio establecido",
+      "validationErrors": "Por favor corrige los siguientes problemas:",
+      "emptyStock": "No hay artículos en el stock de Brasil",
+      "emptySelection": "No hay artículos seleccionados",
+      "savingClient": "Guardando cliente...",
+      "clientSaved": "¡Cliente guardado exitosamente!"
     }
   },
   "common": {

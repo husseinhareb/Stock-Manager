@@ -132,7 +132,12 @@ export default function BrazilStockScreen() {
 			<Pressable
 				collapsable={false}
 				ref={(el) => { if (el) rowRefs.current[`main-${item.id}`] = el; }}
-				onLongPress={(e) => startDrag(item, 'main', e.nativeEvent)}
+				onLongPress={(e) => {
+					// Don't start drag if any modal is open
+					if (!transferModalVisible && !priceModalVisible) {
+						startDrag(item, 'main', e.nativeEvent);
+					}
+				}}
 				delayLongPress={150}
 				style={({ pressed }) => [
 					styles.card,
@@ -160,7 +165,12 @@ export default function BrazilStockScreen() {
 			<Pressable
 				collapsable={false}
 				ref={(el) => { if (el) rowRefs.current[`brazil-${item.id}`] = el; }}
-				onLongPress={(e) => startDrag(item, 'brazil', e.nativeEvent)}
+				onLongPress={(e) => {
+					// Don't start drag if any modal is open
+					if (!transferModalVisible && !priceModalVisible) {
+						startDrag(item, 'brazil', e.nativeEvent);
+					}
+				}}
 				delayLongPress={150}
 				style={({ pressed }) => [
 					styles.card,
@@ -228,6 +238,15 @@ export default function BrazilStockScreen() {
 	const [needsPriceInput, setNeedsPriceInput] = useState(false);
 	const transferSourceRef = useRef<Article | null>(null);
 
+	// Ensure highlights are cleared when modal opens/closes
+	useEffect(() => {
+		if (transferModalVisible) {
+			// Modal is opening - immediately clear all drag states
+			setHighlightTarget(null);
+			setDraggingItem(null);
+		}
+	}, [transferModalVisible]);
+
 	// Root container offset (to align window coords with overlay coords)
 	const rootRef = useRef<any>(null);
 	const rootOffsetRef = useRef({ x: 0, y: 0 });
@@ -277,6 +296,14 @@ export default function BrazilStockScreen() {
 			
 			// Check if we need price input or can transfer directly
 			setTimeout(() => {
+				// Ensure all drag states are cleared before showing modal
+				setDraggingItem(null);
+				setHighlightTarget(null);
+				dragScale.setValue(1);
+				dragOpacity.setValue(1);
+				dragRotation.setValue(0);
+				dragPos.setValue({ x: 0, y: 0 });
+				
 				const src = transferSourceRef.current;
 				const origin = transferOriginRef.current;
 				
@@ -303,7 +330,7 @@ export default function BrazilStockScreen() {
 				}
 				
 				setTransferModalVisible(true);
-			}, 100);
+			}, 150);
 			return;
 		}
 
@@ -342,6 +369,12 @@ export default function BrazilStockScreen() {
 		});
 	};
 
+	// Track modal state in a ref so PanResponder can access current value
+	const transferModalVisibleRef = useRef(false);
+	useEffect(() => {
+		transferModalVisibleRef.current = transferModalVisible;
+	}, [transferModalVisible]);
+
 	// create a single PanResponder once; it reads the live previewSize from previewSizeRef
 	useEffect(() => {
 		if (panResponder.current) return;
@@ -349,11 +382,12 @@ export default function BrazilStockScreen() {
 			onStartShouldSetPanResponder: () => false,
 			onStartShouldSetPanResponderCapture: () => false,
 
-			// Grab the gesture as soon as finger moves after long-press
-			onMoveShouldSetPanResponder: () => !!transferSourceRef.current,
-			onMoveShouldSetPanResponderCapture: () => !!transferSourceRef.current,
+			// Grab the gesture as soon as finger moves after long-press - BUT NOT if modal is open
+			onMoveShouldSetPanResponder: () => !!transferSourceRef.current && !transferModalVisibleRef.current,
+			onMoveShouldSetPanResponderCapture: () => !!transferSourceRef.current && !transferModalVisibleRef.current,
 			onPanResponderMove: (_, gs) => {
-				if (!transferSourceRef.current) return;
+				// Ignore all moves if modal is open or no item is being dragged
+				if (!transferSourceRef.current || transferModalVisibleRef.current) return;
 				
 				// Optimized position calculation
 				const { x: cx, y: cy } = rootOffsetRef.current;
@@ -593,12 +627,24 @@ export default function BrazilStockScreen() {
 				// Returning from Brazil to China: no price needed
 				await returnToMain(src.id, qty);
 			}
+			
+			// Complete cleanup of all states
 			setTransferModalVisible(false);
+			setHighlightTarget(null);
+			setDraggingItem(null);
 			transferSourceRef.current = null;
 			transferOriginRef.current = null;
 			setDragOrigin(null);
 			setQtyWarning('');
 			setNeedsPriceInput(false);
+			setTransferQty('');
+			setTransferPrice('');
+			// Reset animation values
+			dragScale.setValue(1);
+			dragOpacity.setValue(1);
+			dragRotation.setValue(0);
+			dragPos.setValue({ x: 0, y: 0 });
+			
 			await loadData();
 		} catch (e: any) {
 			Alert.alert(t('brazil.alert.transferFailed'), e.message);
@@ -609,7 +655,7 @@ export default function BrazilStockScreen() {
 		<SafeAreaView
 			ref={rootRef}
 			collapsable={false}
-			{...(panResponder.current ? panResponder.current.panHandlers : {})}
+			{...(panResponder.current && !transferModalVisible && !priceModalVisible ? panResponder.current.panHandlers : {})}
 			onLayout={() => {
 				try {
 					rootRef.current?.measureInWindow?.((x: number, y: number) => {
@@ -623,7 +669,7 @@ export default function BrazilStockScreen() {
 				<View ref={mainRef} collapsable={false} onLayout={onMainLayout} style={[
 					styles.sectionContainer,
 					{ backgroundColor: theme.card, marginBottom: 0 },
-					highlightTarget === 'main' ? {
+					(highlightTarget === 'main' && !transferModalVisible && !priceModalVisible) ? {
 						borderColor: theme.primary,
 						borderWidth: 3,
 						backgroundColor: `${theme.primary}15`, // Slight tint
@@ -663,7 +709,7 @@ export default function BrazilStockScreen() {
 				<View ref={brazilRef} collapsable={false} onLayout={onBrazilLayout} style={[
 					styles.sectionContainer,
 					{ backgroundColor: theme.card },
-					highlightTarget === 'brazil' ? {
+					(highlightTarget === 'brazil' && !transferModalVisible && !priceModalVisible) ? {
 						borderColor: theme.primary,
 						borderWidth: 3,
 						backgroundColor: `${theme.primary}15`, // Slight tint
@@ -844,13 +890,22 @@ export default function BrazilStockScreen() {
 							<View style={styles.modalActions}>
 								<Pressable
 									onPress={() => { 
+										// Complete cleanup of all drag and transfer states
 										setTransferModalVisible(false); 
+										setHighlightTarget(null);
+										setDraggingItem(null);
 										transferSourceRef.current = null; 
 										transferOriginRef.current = null; 
 										setDragOrigin(null); 
-										setHighlightTarget(null); 
 										setQtyWarning('');
 										setNeedsPriceInput(false);
+										setTransferQty('');
+										setTransferPrice('');
+										// Reset animation values
+										dragScale.setValue(1);
+										dragOpacity.setValue(1);
+										dragRotation.setValue(0);
+										dragPos.setValue({ x: 0, y: 0 });
 									}}
 									style={({ pressed }) => [
 										styles.modalBtn,

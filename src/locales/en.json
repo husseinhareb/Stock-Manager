@@ -130,7 +130,14 @@
       "selectItem": "Please select at least one item",
       "error": "An error occurred",
       "detailLoadFailed": "Failed to load client details",
-      "shareFailed": "Failed to share receipt"
+      "shareFailed": "Failed to share receipt",
+      "qtyExceedsAvailable": "Quantity exceeds available stock",
+      "noPriceSet": "No price set",
+      "validationErrors": "Please fix the following issues:",
+      "emptyStock": "No items in Brazil stock",
+      "emptySelection": "No items selected",
+      "savingClient": "Saving client...",
+      "clientSaved": "Client saved successfully!"
     }
   },
   "common": {
