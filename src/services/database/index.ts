@@ -1,19 +1,19 @@
 // Database service layer
 import type {
-  Article,
-  ClientItem,
-  ClientPin,
-  Price,
-  SavedClientItem,
-  SavedClientSummary,
+    Article,
+    ClientItem,
+    ClientPin,
+    Price,
+    SavedClientItem,
+    SavedClientSummary,
 } from "@/src/types/database";
 import type { SQLiteDatabase } from "expo-sqlite";
 import * as SQLite from "expo-sqlite";
 
 // Re-export types for convenience
 export type {
-  Article, ClientItem,
-  ClientPin, Price, SavedClientItem, SavedClientSummary
+    Article, ClientItem,
+    ClientPin, Price, SavedClientItem, SavedClientSummary
 };
 
 let _dbPromise: Promise<SQLiteDatabase> | null = null;

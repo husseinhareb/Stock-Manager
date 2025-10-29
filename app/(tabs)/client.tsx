@@ -249,6 +249,7 @@ export default function ClientScreen() {
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
         <style>
           * {
             margin: 0;
@@ -256,19 +257,27 @@ export default function ClientScreen() {
             box-sizing: border-box;
           }
           
+          @page {
+            size: A4;
+            margin: 0;
+          }
+          
           body {
             font-family: 'Courier New', Courier, monospace;
             background: white;
-            padding: 20px;
-            max-width: 400px;
-            margin: 0 auto;
+            margin: 0;
+            padding: 0;
+            width: 210mm;
+            height: 297mm;
             color: #2c3e50;
           }
           
           .receipt {
             background: white;
-            padding: 30px 20px;
-            border: 2px solid #2c3e50;
+            padding: 50px 40px;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
           }
           
           .header {
@@ -279,20 +288,26 @@ export default function ClientScreen() {
           }
           
           .icon {
-            font-size: 48px;
-            margin-bottom: 8px;
+            font-size: 72px;
+            margin-bottom: 12px;
+          }
+          
+          .icon::before {
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            content: "\\f007";
           }
           
           .store-name {
-            font-size: 28px;
+            font-size: 42px;
             font-weight: bold;
-            letter-spacing: 4px;
-            margin-bottom: 4px;
+            letter-spacing: 6px;
+            margin-bottom: 8px;
           }
           
           .receipt-label {
-            font-size: 14px;
-            letter-spacing: 2px;
+            font-size: 18px;
+            letter-spacing: 3px;
             color: #6b7280;
           }
           
@@ -303,15 +318,15 @@ export default function ClientScreen() {
           }
           
           .customer-label {
-            font-size: 12px;
+            font-size: 16px;
             color: #6b7280;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 4px;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
           }
           
           .customer-name {
-            font-size: 18px;
+            font-size: 24px;
             font-weight: bold;
             color: #2c3e50;
           }
@@ -333,19 +348,19 @@ export default function ClientScreen() {
           }
           
           .item-name {
-            font-size: 16px;
+            font-size: 20px;
             font-weight: bold;
             color: #2c3e50;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
           }
           
           .item-qty {
-            font-size: 13px;
+            font-size: 17px;
             color: #6b7280;
           }
           
           .item-total {
-            font-size: 16px;
+            font-size: 20px;
             font-weight: bold;
             color: #2c3e50;
             white-space: nowrap;
@@ -375,8 +390,8 @@ export default function ClientScreen() {
           .subtotal-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            font-size: 15px;
+            padding: 12px 0;
+            font-size: 20px;
           }
           
           .subtotal-label {
@@ -392,37 +407,37 @@ export default function ClientScreen() {
           .grand-total-row {
             display: flex;
             justify-content: space-between;
-            padding: 12px 0;
-            margin-top: 8px;
-            border-top: 3px double #2c3e50;
-            border-bottom: 3px double #2c3e50;
+            padding: 18px 0;
+            margin-top: 12px;
+            border-top: 4px double #2c3e50;
+            border-bottom: 4px double #2c3e50;
           }
           
           .grand-total-label {
-            font-size: 20px;
+            font-size: 28px;
             font-weight: bold;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
           }
           
           .grand-total-value {
-            font-size: 24px;
+            font-size: 32px;
             font-weight: bold;
           }
           
           .footer {
             text-align: center;
-            margin-top: 24px;
-            padding-top: 16px;
-            border-top: 1px dashed #d1d5db;
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 2px dashed #d1d5db;
             color: #9ca3af;
-            font-size: 12px;
+            font-size: 16px;
           }
         </style>
       </head>
       <body>
         <div class="receipt">
           <div class="header">
-            <div class="icon">👤</div>
+            <div class="icon"></div>
             <div class="store-name">RECEIPT</div>
             <div class="receipt-label">SALES RECEIPT</div>
           </div>
@@ -437,11 +452,6 @@ export default function ClientScreen() {
           </div>
           
           <div class="totals-section">
-            <div class="subtotal-row">
-              <span class="subtotal-label">Subtotal:</span>
-              <span class="subtotal-value">${currencySymbol}${cart.total.toFixed(2)}</span>
-            </div>
-            
             <div class="grand-total-row">
               <span class="grand-total-label">TOTAL</span>
               <span class="grand-total-value">${currencySymbol}${cart.total.toFixed(2)}</span>
