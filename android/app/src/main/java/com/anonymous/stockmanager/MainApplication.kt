@@ -1,4 +1,4 @@
-package com.shtam.StockManager
+package com.anonymous.stockmanager
 
 import android.app.Application
 import android.content.res.Configuration

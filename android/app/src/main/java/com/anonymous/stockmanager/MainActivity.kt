@@ -1,4 +1,4 @@
-package com.shtam.StockManager
+package com.anonymous.stockmanager
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
